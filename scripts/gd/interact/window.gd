@@ -51,10 +51,10 @@ func _ready() -> void:
 	bind_signals()
 	set_up_fullscreen_detector()
 	update_window()
-	
+
 	add_child(docking_time_counter)
 	mouseDetection.connect("MouseEntered", docking_time_counter.increase)
-	
+
 func _process(delta: float) -> void:
 	dock_pop()
 
@@ -110,30 +110,30 @@ func _input(event: InputEvent) -> void:
 func increase_window_size():
 	window_scale += STEP_SIZE
 	update_window()
-	
+
 func decrease_window_size():
 	if window_scale < MIN_SCALE:
 		return
 	elif window_scale > MIN_SCALE:
 		window_scale -= STEP_SIZE
-		
+
 	update_window()
 
 func update_window():
 	# 计算新的窗口尺寸
 	var new_width = int(BASE_WINDOW_WIDTH * window_scale)
 	var new_height = int(BASE_WINDOW_HEIGHT * window_scale)
-	
+
 	# 更新主视窗的大小
 	get_tree().root.set_size(Vector2i(new_width, new_height))
 	if enable_docking:
 		var new_position = dock_to_edge(get_tree().root.position, dock_thresh)
 		get_tree().root.position = new_position
-	
+
 func load_config():
 	window_scale = config.get_window_config("window_scale", window_scale)
 	get_tree().root.position = config.get_window_config("window_pos", get_tree().root.position)
-	
+
 func bind_signals():
 	window_scale_changed.connect(config.on_window_config_change)
 	window_pos_changed.connect(config.on_window_config_change)
@@ -146,17 +146,14 @@ func set_up_fullscreen_detector():
 	add_child(fullscreen_check_timer)
 	fullscreen_check_timer.start()
 	set_fullscreen_status(config.get_section(&"system").get_prop(&"auto_hide"))
-	
+
 func set_fullscreen_status(status: bool):
 	fullscreen_check_timer.set_paused(!status)
 
 func dock_to_edge(win_pos: Vector2i, thresh: float):
-	if input_mode_active:
-		return win_pos
-
 	var screen_index := DisplayServer.window_get_current_screen()
 	var screen_rect: Rect2i
-	
+
 	if dock_to_taskbar:
 		screen_rect = DisplayServer.screen_get_usable_rect(screen_index)
 	else:
@@ -164,93 +161,100 @@ func dock_to_edge(win_pos: Vector2i, thresh: float):
 			DisplayServer.screen_get_position(screen_index),
 			DisplayServer.screen_get_size(screen_index)
 		)
-	
+
 	var win_size = DisplayServer.window_get_size()
 	var win_cpos = win_pos + win_size / 2
-	
+
 	var thresh_pixel = int(win_size.x * thresh)
 	var dis_mouse_win_cpos = DisplayServer.mouse_get_position().distance_to(get_tree().root.position + win_size / 2)
-	
+
+	# 打字模式也允许拖到屏幕边缘触发停靠，但只更新停靠状态、不改动模型姿态 /
+	# Body_group / 表情（停靠姿态由 dock_pop 每帧维护），避免干扰打字模仿的可见性。
+	var reset_pose := not input_mode_active
+
 	if  dragging and (dis_mouse_win_cpos > win_size.x or dis_mouse_win_cpos > win_size.y):
 		# 当拖动时，鼠标距离窗口超出窗口大小时不停靠，防止窗口移不出当前屏幕
-		model.set_rotation_degrees(0)
-		model.position = Vector2.ZERO
-		model.Body_group = 1
+		if reset_pose:
+			model.set_rotation_degrees(0)
+			model.position = Vector2.ZERO
+			model.Body_group = 1
+			window_docking.emit(false, DOCK_NONE)
+			anim_controller.set_expression("Idle")
+			docking_time_counter.reset()
 		docking = true
 		docking_dir = DOCK_NONE
-		window_docking.emit(false, DOCK_NONE)
-		anim_controller.set_expression("Idle")
-		docking_time_counter.reset()
-		return win_pos	
+		return win_pos
 	elif win_cpos.x - thresh_pixel < screen_rect.position.x:
 		# 左侧停靠
-		model.set_rotation_degrees(85)
-		model.position.x = -DOCK_POS_OFFSET
-		model.Body_group = 0
-		docking = true
-		docking_dir = DOCK_LEFT
-		model.flip_h = false
-		window_docking.emit(true, DOCK_LEFT)
-		return Vector2i(screen_rect.position.x, win_pos.y)
+		return _dock_to(win_pos, win_size, screen_rect, DOCK_LEFT)
 	elif win_cpos.x + thresh_pixel > screen_rect.end.x:
 		# 右侧停靠
-		model.set_rotation_degrees(-95)
-		model.position.x = DOCK_POS_OFFSET
-		model.Body_group = 0
-		docking = true
-		docking_dir = DOCK_RIGHT
-		model.flip_h = false
-		window_docking.emit(true, DOCK_RIGHT)
-		return Vector2i(screen_rect.end.x - win_size.x, win_pos.y)
+		return _dock_to(win_pos, win_size, screen_rect, DOCK_RIGHT)
 	elif win_cpos.y - thresh_pixel < screen_rect.position.y:
 		# 顶部停靠
-		model.set_rotation_degrees(175)
-		model.position.y = -DOCK_POS_OFFSET
-		model.Body_group = 0
-		docking = true
-		docking_dir = DOCK_TOP
-		model.flip_h = false
-		window_docking.emit(true, DOCK_TOP)
-		return Vector2i(win_pos.x, screen_rect.position.y)
+		return _dock_to(win_pos, win_size, screen_rect, DOCK_TOP)
 	elif win_cpos.y + thresh_pixel > screen_rect.end.y:
 		# 底部停靠
-		model.set_rotation_degrees(-5)
-		model.position.y = DOCK_POS_OFFSET
-		model.Body_group = 0
-		docking = true
-		docking_dir = DOCK_BOTTOM
-		model.flip_h = false
-		window_docking.emit(true, DOCK_BOTTOM)
-		return Vector2i(win_pos.x, screen_rect.end.y - win_size.y)
+		return _dock_to(win_pos, win_size, screen_rect, DOCK_BOTTOM)
 	else:
 		# 不停靠
-		model.set_rotation_degrees(0)
-		model.position = Vector2.ZERO
-		model.Body_group = 1
+		if reset_pose:
+			model.set_rotation_degrees(0)
+			model.position = Vector2.ZERO
+			model.Body_group = 1
+			window_docking.emit(false, DOCK_NONE)
+			anim_controller.set_expression("Idle")
+			docking_time_counter.reset()
 		docking = false
 		docking_dir = DOCK_NONE
-		window_docking.emit(false, DOCK_NONE)
-		anim_controller.set_expression("Idle")
-		docking_time_counter.reset()
 		return win_pos
-		
+
 	return win_pos
-		
+
+func _dock_to(win_pos: Vector2i, win_size: Vector2i, screen_rect: Rect2i, dir: int) -> Vector2i:
+	docking = true
+	docking_dir = dir
+	model.flip_h = false
+	match dir:
+		DOCK_LEFT:
+			model.set_rotation_degrees(85)
+			model.position.x = -DOCK_POS_OFFSET
+			model.Body_group = 0
+			window_docking.emit(true, DOCK_LEFT)
+			return Vector2i(screen_rect.position.x, win_pos.y)
+		DOCK_RIGHT:
+			model.set_rotation_degrees(-95)
+			model.position.x = DOCK_POS_OFFSET
+			model.Body_group = 0
+			window_docking.emit(true, DOCK_RIGHT)
+			return Vector2i(screen_rect.end.x - win_size.x, win_pos.y)
+		DOCK_TOP:
+			model.set_rotation_degrees(175)
+			model.position.y = -DOCK_POS_OFFSET
+			model.Body_group = 0
+			window_docking.emit(true, DOCK_TOP)
+			return Vector2i(win_pos.x, screen_rect.position.y)
+		DOCK_BOTTOM:
+			model.set_rotation_degrees(-5)
+			model.position.y = DOCK_POS_OFFSET
+			model.Body_group = 0
+			window_docking.emit(true, DOCK_BOTTOM)
+			return Vector2i(win_pos.x, screen_rect.end.y - win_size.y)
+	return win_pos
+
 func dock_pop():
 	if input_mode_active:
 		return
 
 	if docking and not dragging:
+		# 每帧保持停靠姿态（旋转 / 偏移 / Body_group / 朝向），防止打字模式退出
+		# 等路径把模型复位成未停靠的样子。
+		_set_dock_rotation(docking_dir)
+		model.Body_group = 0
+		model.flip_h = false
 		if mouseDetection.mouse_hovered:
-			if docking_dir == DOCK_LEFT:
-				model.position.x = -DOCK_POS_OFFSET + dock_pop_offset
-			elif docking_dir == DOCK_RIGHT:
-				model.position.x = DOCK_POS_OFFSET - dock_pop_offset
-			elif docking_dir == DOCK_TOP:
-				model.position.y = -DOCK_POS_OFFSET + dock_pop_offset
-			elif docking_dir == DOCK_BOTTOM:
-				model.position.y = DOCK_POS_OFFSET - dock_pop_offset
-			
+			_set_dock_position(docking_dir, true)
+
 			var count = docking_time_counter.get_count()
 			if count >= 6:
 				anim_controller.set_expression("DockPopAngry")
@@ -258,24 +262,35 @@ func dock_pop():
 				anim_controller.set_expression("Doubt")
 		else:
 			anim_controller.set_expression("Idle")
-			if docking_dir == DOCK_LEFT:
-				model.position.x = -DOCK_POS_OFFSET
-			elif docking_dir == DOCK_RIGHT:
-				model.position.x = DOCK_POS_OFFSET
-			elif docking_dir == DOCK_TOP:
-				model.position.y = -DOCK_POS_OFFSET
-			elif docking_dir == DOCK_BOTTOM:
-				model.position.y = DOCK_POS_OFFSET
+			_set_dock_position(docking_dir)
 	else:
-		if docking_dir == DOCK_LEFT:
-			model.position.x = -DOCK_POS_OFFSET
-		elif docking_dir == DOCK_RIGHT:
-			model.position.x = DOCK_POS_OFFSET
-		elif docking_dir == DOCK_TOP:
-			model.position.y = -DOCK_POS_OFFSET
-		elif docking_dir == DOCK_BOTTOM:
-			model.position.y = DOCK_POS_OFFSET
-		
+		_set_dock_position(docking_dir)
+
+func _set_dock_rotation(dir: int) -> void:
+	match dir:
+		DOCK_LEFT:
+			model.set_rotation_degrees(85)
+		DOCK_RIGHT:
+			model.set_rotation_degrees(-95)
+		DOCK_TOP:
+			model.set_rotation_degrees(175)
+		DOCK_BOTTOM:
+			model.set_rotation_degrees(-5)
+		DOCK_NONE:
+			model.set_rotation_degrees(0)
+
+func _set_dock_position(dir: int, peek: bool = false) -> void:
+	var offset := dock_pop_offset if peek else 0
+	match dir:
+		DOCK_LEFT:
+			model.position.x = -DOCK_POS_OFFSET + offset
+		DOCK_RIGHT:
+			model.position.x = DOCK_POS_OFFSET - offset
+		DOCK_TOP:
+			model.position.y = -DOCK_POS_OFFSET + offset
+		DOCK_BOTTOM:
+			model.position.y = DOCK_POS_OFFSET - offset
+
 func _check_other_app_fullscreen():
 	var state = windowManager.IsOtherAppFullscreen()
 	if state != is_other_app_fullscreen:
