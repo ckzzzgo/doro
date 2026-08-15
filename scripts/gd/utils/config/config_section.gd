@@ -23,9 +23,11 @@ func get_prop(name: StringName):
 	
 func load_props():
 	for key in _prop_dict:
-		var value = _config_manager.get_value(_section_name, key)
-		if value != null:
-			_prop_dict.set(key, value)
+		var default_value = _prop_dict[key]
+		var value = _config_manager.get_value(_section_name, key, default_value)
+		_prop_dict.set(key, value)
+		_config_manager.set_value(_section_name, key, value)
+	_config_manager.save_config()
 
 func _update_prop(name, value):
 	_config_manager.set_value(_section_name, name, value)

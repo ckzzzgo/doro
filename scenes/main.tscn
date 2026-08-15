@@ -1,4 +1,4 @@
-[gd_scene load_steps=44 format=3 uid="uid://gfuvhyo1xjl4"]
+[gd_scene load_steps=46 format=3 uid="uid://gfuvhyo1xjl4"]
 
 [ext_resource type="Script" uid="uid://bq5jct0umnoci" path="res://scripts/gd/interact/window.gd" id="1_o5qli"]
 [ext_resource type="Script" uid="uid://c2wvqwfnqa3u2" path="res://scripts/gd/attributes/model.gd" id="2_o6xl0"]
@@ -34,6 +34,8 @@
 [ext_resource type="PackedScene" uid="uid://belewrb1nqyk8" path="res://prefabs/ui/chat_bar.tscn" id="28_fv21b"]
 [ext_resource type="Script" uid="uid://chga2u23wjved" path="res://scripts/gd/ui/chat_dialog/chat_dialog_window.gd" id="31_qkpxi"]
 [ext_resource type="PackedScene" uid="uid://3m0agg6dl5dn" path="res://prefabs/ui/chat_dialog.tscn" id="31_tel4y"]
+[ext_resource type="Script" uid="uid://c3br8tnavu4kp" path="res://scripts/gd/interact/drag_inertia.gd" id="34_drag"]
+[ext_resource type="Script" path="res://scripts/gd/interact/input_reaction.gd" id="35_input"]
 
 [sub_resource type="Animation" id="Animation_jscy8"]
 length = 0.001
@@ -332,6 +334,17 @@ parameters/Run/TimeScale/scale = 1.5
 script = ExtResource("21_pm3ni")
 model = NodePath("..")
 root = NodePath("../..")
+
+[node name="DragInertia" type="GDCubismEffectCustom" parent="GDCubismUserModel" node_paths=PackedStringArray("model")]
+script = ExtResource("34_drag")
+model = NodePath("..")
+
+[node name="InputReaction" type="Node2D" parent="." node_paths=PackedStringArray("model", "window", "move_effect", "rand_move")]
+script = ExtResource("35_input")
+model = NodePath("../GDCubismUserModel")
+window = NodePath("..")
+move_effect = NodePath("../GDCubismUserModel/Animation/EffectMove")
+rand_move = NodePath("../GDCubismUserModel/Animation/EffectMove/EffectRandMove")
 
 [node name="DropRemover" type="Node" parent="GDCubismUserModel" node_paths=PackedStringArray("anim_controller")]
 script = ExtResource("28_2f3dj")

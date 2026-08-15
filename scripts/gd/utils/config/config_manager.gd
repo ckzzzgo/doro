@@ -3,7 +3,7 @@ class_name ConfigManager
 
 const WINDOW_SEC_NAME: StringName = &"window"
 
-@export var config_path:String = "res://config.ini"
+@export var config_path:String = "user://config.ini"
 
 var _config = ConfigFile.new()
 var _sections: Dictionary[StringName, ConfigSection] = {}
@@ -19,7 +19,10 @@ func get_section(name: StringName) -> ConfigSection:
 	return _sections.get(name)
 	
 func load_config():
-	if not _config.load(config_path):
+	var error := _config.load(config_path)
+	if error != OK:
+		if error != ERR_FILE_NOT_FOUND:
+			push_warning("Unable to load config file (%s): %s" % [config_path, error])
 		save_config()
 		
 func save_config():

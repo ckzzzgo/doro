@@ -15,7 +15,7 @@ var ok_to_move: bool
 var move_lock : bool = false  # 移动锁，结点持有该锁，运动将被优先执行
 	
 func _process(delta: float) -> void:
-	ok_to_move = enable and not window.dragging and (not window.docking or move_lock)
+	ok_to_move = enable and not window.dragging and not window.input_mode_active and (not window.docking or move_lock)
 	if !ok_to_move:
 		stop()
 	

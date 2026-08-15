@@ -28,6 +28,7 @@ const DOCK_POS_OFFSET = 380
 @onready var config: ConfigManager = get_node("/root/Config")
 
 var dragging: bool = false
+var input_mode_active: bool = false
 var docking: bool = false
 var docking_dir: int = DOCK_NONE
 var docking_time_counter:TimeCounter = TimeCounter.new(dock_pop_expression_reset_time)
@@ -58,16 +59,28 @@ func _process(delta: float) -> void:
 	dock_pop()
 
 func _input(event: InputEvent) -> void:
+	if input_mode_active:
+		dragging = false
+		return
+
 	if event is InputEventMouseButton:
 		# Window dragging
 		if event.button_index == MOUSE_BUTTON_LEFT:
 			if event.pressed:
-				if enable_window_drag and not $GDCubismUserModel/Animation/EffectMove.is_moving:
+				if enable_window_drag:
+					var move_effect: MoveEffect = $GDCubismUserModel/Animation/EffectMove
+					var rand_move = $GDCubismUserModel/Animation/EffectMove/EffectRandMove
+					if move_effect.is_moving:
+						move_effect.stop()
+					rand_move.timer.set_paused(true)
 					dragging = true
 					drag_start_mouse_pos = mouseTracker.GetMousePosition()
 					drag_start_window_pos = get_tree().root.position
 			else:
 				dragging = false
+				var rand_move = $GDCubismUserModel/Animation/EffectMove/EffectRandMove
+				if rand_move.enable:
+					rand_move.timer.set_paused(false)
 				window_pos_changed.emit("window_pos", get_tree().root.position)
 				
 		if event.button_index == MOUSE_BUTTON_MIDDLE:
@@ -134,16 +147,22 @@ func set_fullscreen_status(status: bool):
 	fullscreen_check_timer.set_paused(!status)
 
 func dock_to_edge(win_pos: Vector2i, thresh: float):
-	var screen_size = Vector2i.ZERO
+	if input_mode_active:
+		return win_pos
+
+	var screen_index := DisplayServer.window_get_current_screen()
+	var screen_rect: Rect2i
 	
 	if dock_to_taskbar:
-		screen_size = DisplayServer.screen_get_usable_rect().size
+		screen_rect = DisplayServer.screen_get_usable_rect(screen_index)
 	else:
-		screen_size = DisplayServer.screen_get_size()
+		screen_rect = Rect2i(
+			DisplayServer.screen_get_position(screen_index),
+			DisplayServer.screen_get_size(screen_index)
+		)
 	
-	var screen_pos = DisplayServer.screen_get_position()
 	var win_size = DisplayServer.window_get_size()
-	var win_cpos = win_pos - screen_pos + win_size / 2
+	var win_cpos = win_pos + win_size / 2
 	
 	var thresh_pixel = int(win_size.x * thresh)
 	var dis_mouse_win_cpos = DisplayServer.mouse_get_position().distance_to(get_tree().root.position + win_size / 2)
@@ -159,7 +178,7 @@ func dock_to_edge(win_pos: Vector2i, thresh: float):
 		anim_controller.set_expression("Idle")
 		docking_time_counter.reset()
 		return win_pos	
-	elif win_cpos.x - thresh_pixel < 0:
+	elif win_cpos.x - thresh_pixel < screen_rect.position.x:
 		# 左侧停靠
 		model.set_rotation_degrees(85)
 		model.position.x = -DOCK_POS_OFFSET
@@ -168,8 +187,8 @@ func dock_to_edge(win_pos: Vector2i, thresh: float):
 		docking_dir = DOCK_LEFT
 		model.flip_h = false
 		window_docking.emit(true, DOCK_LEFT)
-		return Vector2i(screen_pos.x, win_pos.y)
-	elif win_cpos.x + thresh_pixel > screen_size.x:
+		return Vector2i(screen_rect.position.x, win_pos.y)
+	elif win_cpos.x + thresh_pixel > screen_rect.end.x:
 		# 右侧停靠
 		model.set_rotation_degrees(-95)
 		model.position.x = DOCK_POS_OFFSET
@@ -178,8 +197,8 @@ func dock_to_edge(win_pos: Vector2i, thresh: float):
 		docking_dir = DOCK_RIGHT
 		model.flip_h = false
 		window_docking.emit(true, DOCK_RIGHT)
-		return Vector2i(screen_size.x + screen_pos.x - win_size.x, win_pos.y)
-	elif win_cpos.y - thresh_pixel < 0:
+		return Vector2i(screen_rect.end.x - win_size.x, win_pos.y)
+	elif win_cpos.y - thresh_pixel < screen_rect.position.y:
 		# 顶部停靠
 		model.set_rotation_degrees(175)
 		model.position.y = -DOCK_POS_OFFSET
@@ -188,8 +207,8 @@ func dock_to_edge(win_pos: Vector2i, thresh: float):
 		docking_dir = DOCK_TOP
 		model.flip_h = false
 		window_docking.emit(true, DOCK_TOP)
-		return Vector2i(win_pos.x, screen_pos.y)
-	elif win_cpos.y + thresh_pixel > screen_size.y:
+		return Vector2i(win_pos.x, screen_rect.position.y)
+	elif win_cpos.y + thresh_pixel > screen_rect.end.y:
 		# 底部停靠
 		model.set_rotation_degrees(-5)
 		model.position.y = DOCK_POS_OFFSET
@@ -198,7 +217,7 @@ func dock_to_edge(win_pos: Vector2i, thresh: float):
 		docking_dir = DOCK_BOTTOM
 		model.flip_h = false
 		window_docking.emit(true, DOCK_BOTTOM)
-		return Vector2i(win_pos.x, screen_size.y + screen_pos.y - win_size.y)
+		return Vector2i(win_pos.x, screen_rect.end.y - win_size.y)
 	else:
 		# 不停靠
 		model.set_rotation_degrees(0)
@@ -214,6 +233,9 @@ func dock_to_edge(win_pos: Vector2i, thresh: float):
 	return win_pos
 		
 func dock_pop():
+	if input_mode_active:
+		return
+
 	if docking and not dragging:
 		if mouseDetection.mouse_hovered:
 			if docking_dir == DOCK_LEFT:

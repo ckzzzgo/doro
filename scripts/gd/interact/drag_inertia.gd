@@ -7,6 +7,7 @@ extends GDCubismEffectCustom
 @export var acceleration: float = 8.0  # 加速度系数
 @export var deceleration: float = 12.0 # 减速度系数
 @export var drag_thresh:int = 20
+@export var settle_threshold:float = 0.01
 
 var left_mouse_pressed:bool = false
 var mouse_press_position
@@ -50,15 +51,20 @@ func _on_cubism_init(model: GDCubismUserModel):
 			param_y = param
 
 func _on_cubism_process(model: GDCubismUserModel, delta: float):
+	if param_x == null or param_y == null:
+		return
+
 	if is_dragging:
 		# 使用加速度逼近目标速度
 		current_velocity = current_velocity.lerp(target_velocity, acceleration * delta)
 	else:
 		# 没有拖动时使用减速度逐渐停止
 		current_velocity = current_velocity.lerp(Vector2.ZERO, deceleration * delta)
+		if current_velocity.length_squared() < settle_threshold * settle_threshold:
+			current_velocity = Vector2.ZERO
 	
 	# 应用参数变化
-	if is_dragging:
+	if current_velocity != Vector2.ZERO:
 		if not model.flip_h:
 			param_x.value = -current_velocity.x * param_x.maximum_value
 		else:

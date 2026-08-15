@@ -16,19 +16,19 @@ func _ready() -> void:
 	_load_config()
 
 func _bind_components():
-	_section.set_prop(&"pin", false)
+	_section.set_prop(&"pin", true)
 	_section.bind(&"pin").with(_update_pin).to_check_box($PinCheckbox)
 	_section.bind(&"pin").with(_update_pin).to_toggle_button(get_node("/root/Node2D/GUI/Toolbar/Buttons/StickButton"))
 	
-	_section.set_prop(&"stroll", false)
+	_section.set_prop(&"stroll", true)
 	_section.bind(&"stroll").with(_update_stroll).to_check_box($StrollCheckbox)
 	_section.bind(&"stroll").with(_update_stroll).to_check_box(get_node("/root/Node2D/GUI/Toolbar/Buttons/InteractButton/InteractMenu/VBoxContainer/StrollCheckbox"))
 	
-	_section.set_prop(&"mouse_follow", false)
+	_section.set_prop(&"mouse_follow", true)
 	_section.bind(&"mouse_follow").with(_update_mouse_follow).to_check_box($MouseFollowCheckbox)
 	_section.bind(&"mouse_follow").with(_update_mouse_follow).to_toggle_button(get_node("/root/Node2D/GUI/Toolbar/Buttons/InteractButton/InteractMenu/VBoxContainer/MouseFollowCheckbox"))
 	
-	_section.set_prop(&"dock", false)
+	_section.set_prop(&"dock", true)
 	_section.bind(&"dock").with(_update_dock).to_check_box($Dock/DockCheckbox)
 	_section.bind(&"dock").using(InvertBoolBindingConverter.new()).to($Dock/OptionButton, &"disabled")
 	
