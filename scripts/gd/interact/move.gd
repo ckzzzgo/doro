@@ -48,8 +48,16 @@ func move(target_pos: Vector2i, override: bool = false, pre_call: Callable = Cal
 	move_tween.finished.connect(_on_movement_finished.bind(post_call))
 
 func stop():
+	var was_moving := is_moving
 	_clear_tween()
 	_on_movement_finished()
+	if was_moving:
+		# 移动被中断（拖拽 / 停靠 / 进入打字模式 / 随机移动被禁用）：立即恢复
+		# 待机动画并解挂随机移动计时器，否则 DORO 会保持"跑步"动画却停在原地不动。
+		if anim_controller:
+			anim_controller.idle()
+		if rand_move and rand_move.enable:
+			rand_move.timer.set_paused(false)
 
 func _get_movement_direction(target_pos: Vector2) -> int:
 	var current_pos = get_tree().root.get_window().position
