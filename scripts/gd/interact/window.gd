@@ -59,42 +59,29 @@ func _process(delta: float) -> void:
 	dock_pop()
 
 func _input(event: InputEvent) -> void:
-	if input_mode_active:
-		dragging = false
+	# 左键拖动窗口：即使在输入模式（打字模仿）下也允许拖动，方便用户随时把
+	# 桌宠移开，不会在打字时被挡住屏幕。输入模式下仍跳过停靠/滚轮缩放等。
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			if enable_window_drag:
+				var move_effect: MoveEffect = $GDCubismUserModel/Animation/EffectMove
+				var rand_move = $GDCubismUserModel/Animation/EffectMove/EffectRandMove
+				if move_effect.is_moving:
+					move_effect.stop()
+				rand_move.timer.set_paused(true)
+				dragging = true
+				drag_start_mouse_pos = mouseTracker.GetMousePosition()
+				drag_start_window_pos = get_tree().root.position
+		else:
+			dragging = false
+			var rand_move = $GDCubismUserModel/Animation/EffectMove/EffectRandMove
+			if rand_move.enable:
+				rand_move.timer.set_paused(false)
+			window_pos_changed.emit("window_pos", get_tree().root.position)
 		return
 
-	if event is InputEventMouseButton:
-		# Window dragging
-		if event.button_index == MOUSE_BUTTON_LEFT:
-			if event.pressed:
-				if enable_window_drag:
-					var move_effect: MoveEffect = $GDCubismUserModel/Animation/EffectMove
-					var rand_move = $GDCubismUserModel/Animation/EffectMove/EffectRandMove
-					if move_effect.is_moving:
-						move_effect.stop()
-					rand_move.timer.set_paused(true)
-					dragging = true
-					drag_start_mouse_pos = mouseTracker.GetMousePosition()
-					drag_start_window_pos = get_tree().root.position
-			else:
-				dragging = false
-				var rand_move = $GDCubismUserModel/Animation/EffectMove/EffectRandMove
-				if rand_move.enable:
-					rand_move.timer.set_paused(false)
-				window_pos_changed.emit("window_pos", get_tree().root.position)
-				
-		if event.button_index == MOUSE_BUTTON_MIDDLE:
-			if event.pressed and not docking:
-				window_middle_click.emit()
-		
-		# Window rescaling
-		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			increase_window_size()
-			window_scale_changed.emit("window_scale", window_scale)
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			decrease_window_size()
-			window_scale_changed.emit("window_scale", window_scale)
-	
+	# 拖动过程中移动窗口：同样放到输入模式判定之前，否则打字模式下鼠标一动
+	# 就被下面的 input_mode_active 分支把 dragging 重置，拖动依然失败。
 	if event is InputEventMouseMotion and dragging:
 		var cur_mouse_pos = mouseTracker.GetMousePosition()
 		var delta_pos = cur_mouse_pos - drag_start_mouse_pos
@@ -102,6 +89,23 @@ func _input(event: InputEvent) -> void:
 		if enable_docking:
 			new_position = dock_to_edge(new_position, dock_thresh)
 		get_tree().root.position = new_position
+		return
+
+	if input_mode_active:
+		dragging = false
+		return
+
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_MIDDLE:
+			if event.pressed and not docking:
+				window_middle_click.emit()
+		# Window rescaling
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			increase_window_size()
+			window_scale_changed.emit("window_scale", window_scale)
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			decrease_window_size()
+			window_scale_changed.emit("window_scale", window_scale)
 
 func increase_window_size():
 	window_scale += STEP_SIZE

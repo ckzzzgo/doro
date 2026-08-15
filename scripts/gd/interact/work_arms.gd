@@ -2,9 +2,10 @@ extends Node2D
 
 ## 工作模式（键盘模式）的双臂渲染器。
 ##
-## 唯一拓扑：每条手臂 = 桌沿根部 → 三次贝塞尔弯曲段 → 腕前直线段 →
-## 伸入爪子腕口的填充尖端。腕口骨点（wrist_bone）与腕口朝向（outward）
-## 由 input_reaction 按爪子贴图实测腕口反算，本渲染器不再自行猜测：
+## 唯一拓扑：每条手臂 = 桌沿根部 → 腕前直线段 → 伸入爪子腕口的填充尖端
+## （直臂：根部到腕口全程一条直线，无弯曲段）。腕口骨点（wrist_bone）与
+## 腕口朝向（outward）由 input_reaction 按爪子贴图实测腕口反算，本渲染器
+## 不再自行猜测：
 ##   - 手臂中心线终点与末端切线完全由 wrist_bone / outward 决定；
 ##   - 填充伸入腕口 ARM_TIP_OVERLAP 并向外轮廓中心线锥缩，由前景爪子遮住；
 ##   - 双侧轮廓在腕口切面处精确停止，与贴图腕管轮廓相接，不进入爪子内部；
@@ -15,16 +16,19 @@ const PAW_ARM_OUTLINE_COLOR := Color("#150f11")
 const TABLE_SURFACE_COLOR := Color("#fff6f8")
 const EDGE_LINE_CLEARANCE := 2.4
 
-const ARM_CURVE_STEPS := 16
 const ARM_RUN_IN_STEPS := 7
 # 腕前直线段长度比例/上限：保证可见手臂在腕口前已被拉直到贴图腕管方向。
 const ARM_RUN_IN_RATIO := 0.45
 const ARM_RUN_IN_MAX := 48.0
 # 填充伸入腕口的深度；尖端宽度锥缩到腕管内腔以内，贴图不透明腕管将其遮住。
 const ARM_TIP_OVERLAP := 10.0
+# 填充锥缩提前量：在腕口切面前 FILL_TAPER_AHEAD 像素处就开始收窄，使填充
+# 边缘在轮廓截停处（及更深处）已经明显窄于腕口开口，杜绝白色填充毛边。
+const FILL_TAPER_AHEAD := 6.0
 const ROOT_IN_FRONT_OF_EDGE := 4.5
-# 腕口骨点没入桌沿后沿不足此深度时，手臂视为完全收回，不再绘制。
-const ARM_RETRACTED_DEPTH := 4.0
+# 手臂末端收窄范围：腕骨距桌沿小于此值开始变细，到桌沿（depth=0）缩成零；
+# 腕骨没入桌沿后沿后整条隐藏。腕点始终锚定爪子，不做位移插值，回收不脱节。
+const RETRACT_TAPER_DEPTH := 12.0
 const TABLE_EDGE_OVERLAP := 10.0
 const ARM_CONTACT_SHADOW_OFFSET := Vector2(1.4, 2.2)
 const ARM_CONTACT_SHADOW_COLOR := Color(0.34, 0.10, 0.15, 0.16)
@@ -135,6 +139,15 @@ func get_arm_root(shoulder: Vector2, reference: Vector2) -> Vector2:
 	)
 
 
+## 判断腕骨是否已没入桌沿后沿（此时手臂整条隐藏）。与 _add_arm 的隐藏判定
+## 共用同一几何，供 input_reaction 决定爪子是否该在收回瞬间切回无腕口的
+## 待机圆爪贴图，避免出现"空腕口"的过渡爪悬在桌沿。
+func is_wrist_retracted(root: Vector2, wrist_bone: Vector2) -> bool:
+	var desk_normal := _table_surface_normal()
+	var edge_point := _project_to_table_edge(root)
+	return (wrist_bone - edge_point).dot(desk_normal) <= 0.0
+
+
 func _add_arm(
 	root: Vector2,
 	wrist_bone: Vector2,
@@ -147,36 +160,33 @@ func _add_arm(
 		outward = Vector2.UP
 	var desk_normal := _table_surface_normal()
 
-	# 骨点收进桌沿后沿以内：手臂已缩回桌后，直接隐藏（无跳变地缩到零长）。
+	# 平滑缩回：腕骨没入桌沿后沿（从桌面消失）即整条隐藏。腕骨逼近桌沿时
+	# 手臂自然缩短（腕点始终锚定爪子，不做位移插值），并在最后
+	# RETRACT_TAPER_DEPTH 内宽度同步收窄，到桌沿缩成零，不瞬断、不脱节。
 	var edge_point := _project_to_table_edge(root)
-	if (wrist_bone - edge_point).dot(desk_normal) < ARM_RETRACTED_DEPTH:
+	var wrist_depth := (wrist_bone - edge_point).dot(desk_normal)
+	if wrist_depth <= 0.0:
 		return
+	if wrist_depth < RETRACT_TAPER_DEPTH:
+		var taper := clampf(wrist_depth / RETRACT_TAPER_DEPTH, 0.0, 1.0)
+		wrist_outer_half *= taper
+		outline_width *= taper
 
-	# 中心线：根部 → 弯曲段 → 腕前直线段 → 腕口内尖端。
-	var tip := wrist_bone - outward * ARM_TIP_OVERLAP
+	# 中心线：根部 → 腕前直线段 → 腕口内尖端（直臂，无肘部）。
+	# 整条手臂是"根部→腕口"的一条直线：前臂方向即根部指向腕口的方向，
+	# 腕口前仍保留 run_in 直线段、尖端沿同一直线伸入爪子，不引入折角。
 	var reach := root.distance_to(wrist_bone)
 	var run_in := minf(
 		clampf(reach * ARM_RUN_IN_RATIO, 0.0, ARM_RUN_IN_MAX),
 		maxf(reach - 3.0, 0.0)
 	)
-	var run_start := wrist_bone + outward * run_in
-	var path := PackedVector2Array()
-	var chord := root.distance_to(run_start)
-	if chord < 0.5:
-		path.append(root)
-	else:
-		# 控制柄长度随距离连续缩放，任何距离下都不会折返或退化。
-		var handle_root := root + desk_normal * minf(chord * 0.30, 34.0)
-		var handle_wrist := run_start + outward * minf(chord * 0.28, 30.0)
-		for step in range(ARM_CURVE_STEPS + 1):
-			var amount := float(step) / float(ARM_CURVE_STEPS)
-			var inverse := 1.0 - amount
-			path.append(
-				root * inverse * inverse * inverse
-				+ handle_root * 3.0 * inverse * inverse * amount
-				+ handle_wrist * 3.0 * inverse * amount * amount
-				+ run_start * amount * amount * amount
-			)
+	var forearm_dir := (wrist_bone - root).normalized()
+	if forearm_dir == Vector2.ZERO:
+		forearm_dir = desk_normal
+	run_in = minf(run_in, maxf(reach - 2.0, 0.0))
+	var run_start := wrist_bone - forearm_dir * run_in
+	var tip := wrist_bone + forearm_dir * ARM_TIP_OVERLAP
+	var path := PackedVector2Array([root, run_start])
 	for step in range(1, ARM_RUN_IN_STEPS + 1):
 		var amount := float(step) / float(ARM_RUN_IN_STEPS)
 		path.append(run_start.lerp(tip, amount))
@@ -184,14 +194,17 @@ func _add_arm(
 	# 宽度剖面：轮廓中心线半宽恒定 = 贴图腕管外半宽 - 半条轮廓宽，
 	# 与贴图腕管在切面处精确对接；伸入腕口的填充尖端锥缩到内腔以内。
 	var centerline_half: float = maxf(wrist_outer_half - outline_width * 0.5, 1.0)
-	var inner_half: float = maxf(wrist_outer_half - outline_width, 1.0) * 0.96
+	# 尖端目标宽度比内腔略窄（0.88），与轮廓截停处相比留出更宽的余量，
+	# 即使爪子开口边缘有亚像素误差也不会露出白色填充。
+	var inner_half: float = maxf(wrist_outer_half - outline_width, 1.0) * 0.88
 	var fill_half_widths := PackedFloat32Array()
+	var taper_span := ARM_TIP_OVERLAP + FILL_TAPER_AHEAD
 	for point in path:
 		var depth := (point - wrist_bone).dot(outward)
-		if depth >= 0.0:
+		if depth >= FILL_TAPER_AHEAD:
 			fill_half_widths.append(centerline_half)
 		else:
-			var amount := clampf(-depth / ARM_TIP_OVERLAP, 0.0, 1.0)
+			var amount := clampf((FILL_TAPER_AHEAD - depth) / taper_span, 0.0, 1.0)
 			fill_half_widths.append(lerpf(centerline_half, inner_half, amount))
 
 	var sides := _build_side_lines(path, fill_half_widths)
@@ -222,7 +235,7 @@ func _add_arm(
 	# 的背景里留下大椭圆色块。
 	var band_half_width := (
 		(centerline_half + outline_width * 0.5 + EDGE_LINE_CLEARANCE)
-		* clampf((reach - ARM_RETRACTED_DEPTH) / 26.0, 0.3, 1.0)
+		* clampf((reach - RETRACT_TAPER_DEPTH) / 26.0, 0.3, 1.0)
 	)
 	for segment in _build_edge_underlay(path, root, start_direction, band_half_width):
 		_front_layer.underlay_polys.append(segment)

@@ -15,6 +15,13 @@ const MIN_ACTIVE_TIME := 3.0
 const IDLE_TIMEOUT := 7.0
 const PRESS_DURATION := 0.16
 const PAW_TURN_DURATION := 0.055
+# 爪子贴图切换（TURN↔PRESS）后，scale 与手臂粗细按此速率连续插值到新贴图
+# 实测值，消除按下瞬间"爪子突然放大、腕口变粗"的跳变。
+const VISUAL_BLEND_RATE := 34.0
+# PRESS 爪腕管在贴图内自顶部向下倾斜约 6.1°（实测中心线斜率 -0.106 px/y），
+# TURN 爪近似竖直（0.7°）。手臂需沿腕管轴进入，PRESS 姿态的腕口朝向要补偿
+# 这一倾角，避免手臂在腕口处与贴图腕管错位。
+const PRESS_TUBE_TILT_RAD := 0.106
 
 # 过渡爪在贴图切换/复位时承担中间形态；按下/复位共享同一条腕骨插值。
 const PRESS_POSE_RATE := 28.0
@@ -121,6 +128,11 @@ var _right_rest_bone := Vector2.ZERO
 var _right_visual := PawVisual.IDLE
 var _right_action_active := false
 var _right_phase_changed_at := -100.0
+
+# 爪子当前显示缩放（每帧向目标贴图实测缩放插值）；贴图可瞬时切换，但
+# scale 连续，保证腕口粗度/手臂粗细随爪子平滑过渡，不会突然跳变。
+var _left_scale := KEYBOARD_IDLE_PAW_SCALE
+var _right_scale := MOUSE_IDLE_PAW_SCALE
 
 
 func _ready() -> void:
@@ -386,12 +398,15 @@ func _on_mouse_move(position: Vector2) -> void:
 	_last_mouse_position = position
 
 
+## 记录一次输入活动。仅键盘活动（mouse_activity == false）会触发打字模式；
+## 鼠标移动/按压只刷新活动时间戳（保持打字模式存活、供鼠标爪按压跟随），
+## 不会独自把桌宠拽进打字模式。
 func _register_activity(mouse_activity: bool) -> void:
 	var now := _now()
 	_last_activity = now
 	if mouse_activity:
 		_last_mouse_activity = now
-	if not _active:
+	if not _active and not mouse_activity:
 		_activate_work_mode()
 
 
@@ -419,7 +434,9 @@ func _activate_work_mode() -> void:
 		)
 
 	window.input_mode_active = true
-	window.dragging = false
+	# 不再在此处强制 dragging = false：打字模式会在点击宠物拖动窗口的那一刻
+	# 激活（拖动按下即触发鼠标活动），若把它重置，刚开始的拖动会立即失效，
+	# 用户就再也无法在打字时把挡屏的桌宠拖走。
 	rand_move.enable = false
 	if move_effect.is_moving:
 		move_effect.stop()
@@ -496,16 +513,25 @@ func _update_paws(now: float, delta: float) -> void:
 		and _left_bone.distance_to(_left_rest_bone) <= REST_SNAP_DISTANCE
 		and absf(_left_rot) <= REST_SNAP_ROTATION
 	)
+	# 手臂是否已完全收回（腕骨没入桌沿后沿，不再绘制手臂）：此时爪子必须立即
+	# 切回无腕口的待机圆爪贴图，让圆爪滑入待机位，避免"空腕口"过渡爪悬在桌沿。
+	var left_arm_root: Vector2 = _work_arms.get_arm_root(KEYBOARD_SHOULDER_ANCHOR, _left_bone)
+	var left_arm_retracted: bool = _work_arms.is_wrist_retracted(left_arm_root, _left_bone)
 	if left_at_rest:
 		_left_bone = _left_rest_bone
 		_left_rot = 0.0
 
 	if keyboard_pressed and now - _left_phase_changed_at >= PAW_TURN_DURATION:
 		_left_visual = PawVisual.PRESS
-	elif left_at_rest:
+	elif left_at_rest or left_arm_retracted:
 		_left_visual = PawVisual.IDLE
 	else:
 		_left_visual = PawVisual.TURN
+	var left_scale_target := _scale_for_visual(_left_visual, true)
+	_left_scale = _left_scale.lerp(
+		left_scale_target,
+		1.0 - exp(-VISUAL_BLEND_RATE * delta)
+	)
 	_apply_paw_visual(_left_paw, _left_visual, true)
 
 	# ---- 鼠标爪腕骨 ----
@@ -527,16 +553,24 @@ func _update_paws(now: float, delta: float) -> void:
 		and _right_bone.distance_to(_right_rest_bone) <= REST_SNAP_DISTANCE
 		and absf(_right_rot) <= REST_SNAP_ROTATION
 	)
+	# 与左爪同理：手臂一收回（腕骨没入桌沿），立即切回无腕口的圆爪待机贴图。
+	var right_arm_root: Vector2 = _work_arms.get_arm_root(MOUSE_SHOULDER_ANCHOR, _right_bone)
+	var right_arm_retracted: bool = _work_arms.is_wrist_retracted(right_arm_root, _right_bone)
 	if right_at_rest:
 		_right_bone = _right_rest_bone
 		_right_rot = 0.0
 
 	if mouse_paw_pressed and now - _right_phase_changed_at >= PAW_TURN_DURATION:
 		_right_visual = PawVisual.PRESS
-	elif right_at_rest:
+	elif right_at_rest or right_arm_retracted:
 		_right_visual = PawVisual.IDLE
 	else:
 		_right_visual = PawVisual.TURN
+	var right_scale_target := _scale_for_visual(_right_visual, false)
+	_right_scale = _right_scale.lerp(
+		right_scale_target,
+		1.0 - exp(-VISUAL_BLEND_RATE * delta)
+	)
 	_apply_paw_visual(_right_paw, _right_visual, false)
 
 	# ---- 手臂：中心线终点与末端切线完全由腕骨决定 ----
@@ -551,8 +585,8 @@ func _update_paws(now: float, delta: float) -> void:
 		not right_at_rest,
 		left_arm[0],
 		right_arm[0],
-		Vector2.UP.rotated(_left_rot),
-		Vector2.UP.rotated(_right_rot),
+		_arm_outward(_left_visual, _left_rot, _left_scale.x, true),
+		_arm_outward(_right_visual, _right_rot, _right_scale.x, false),
 		left_arm[1],
 		right_arm[1]
 	)
@@ -628,43 +662,70 @@ func _place_paw(
 
 
 func _apply_paw_visual(paw: Sprite2D, visual: int, keyboard_side: bool) -> void:
+	var scale := _left_scale if keyboard_side else _right_scale
 	match visual:
 		PawVisual.IDLE:
 			_set_paw_texture(
 				paw,
 				_left_idle_texture if keyboard_side else _right_idle_texture,
-				KEYBOARD_IDLE_PAW_SCALE if keyboard_side else MOUSE_IDLE_PAW_SCALE
+				scale
 			)
 		PawVisual.TURN:
 			_set_paw_texture(
 				paw,
 				_turn_texture,
-				KEYBOARD_TURN_PAW_SCALE if keyboard_side else MOUSE_TURN_PAW_SCALE
+				scale
 			)
 		PawVisual.PRESS:
 			_set_paw_texture(
 				paw,
 				_left_press_texture if keyboard_side else _right_press_texture,
-				KEYBOARD_PRESS_PAW_SCALE if keyboard_side else MOUSE_PRESS_PAW_SCALE
+				scale
 			)
 	var bone := _left_bone if keyboard_side else _right_bone
 	var bone_rot := _left_rot if keyboard_side else _right_rot
 	_place_paw(paw, visual, bone, bone_rot)
 
 
-## 当前贴图对应的腕口外半宽与轮廓粗（世界像素），手臂与贴图腕管在切面
-## 处等宽、轮廓等粗，拼接处无台阶。
+## 当前贴图对应的腕口外半宽与轮廓粗（世界像素，按爪子当前显示缩放缩放），
+## 手臂与贴图腕管在切面处等宽、轮廓等粗，拼接处无台阶。
 func _arm_metrics(visual: int, keyboard_side: bool) -> Array:
+	var scale := _left_scale if keyboard_side else _right_scale
 	match visual:
 		PawVisual.PRESS:
-			var sc: Vector2 = KEYBOARD_PRESS_PAW_SCALE if keyboard_side else MOUSE_PRESS_PAW_SCALE
-			return [PRESS_SOCKET_OUTER_HALF * sc.x, PRESS_SOCKET_OUTLINE_PX * sc.x]
+			return [PRESS_SOCKET_OUTER_HALF * scale.x, PRESS_SOCKET_OUTLINE_PX * scale.x]
 		PawVisual.TURN:
-			var sc: Vector2 = KEYBOARD_TURN_PAW_SCALE if keyboard_side else MOUSE_TURN_PAW_SCALE
-			return [TURN_SOCKET_OUTER_HALF * sc.x, TURN_SOCKET_OUTLINE_PX * sc.x]
+			return [TURN_SOCKET_OUTER_HALF * scale.x, TURN_SOCKET_OUTLINE_PX * scale.x]
 		_:
-			var sc: Vector2 = KEYBOARD_IDLE_PAW_SCALE if keyboard_side else MOUSE_IDLE_PAW_SCALE
-			return [TURN_SOCKET_OUTER_HALF * sc.x, TURN_SOCKET_OUTLINE_PX * sc.x]
+			return [TURN_SOCKET_OUTER_HALF * scale.x, TURN_SOCKET_OUTLINE_PX * scale.x]
+
+
+## 爪子目标显示缩放（贴图切换的目标值，实际显示值由 _left_scale/_right_scale
+## 每帧向该值插值）。
+func _scale_for_visual(visual: int, keyboard_side: bool) -> Vector2:
+	match visual:
+		PawVisual.PRESS:
+			return KEYBOARD_PRESS_PAW_SCALE if keyboard_side else MOUSE_PRESS_PAW_SCALE
+		PawVisual.TURN:
+			return KEYBOARD_TURN_PAW_SCALE if keyboard_side else MOUSE_TURN_PAW_SCALE
+		_:
+			return KEYBOARD_IDLE_PAW_SCALE if keyboard_side else MOUSE_IDLE_PAW_SCALE
+
+
+## 腕口朝向外侧方向：PRESS 爪腕管在贴图内有实测倾角，需叠加补偿使手臂沿
+## 腕管轴进入；倾角随爪子缩放进度渐入，避免 TURN→PRESS 时朝向瞬间跳变。
+## TURN/IDLE 爪腕管近似竖直，无需补偿。
+func _arm_outward(visual: int, bone_rot: float, display_scale_x: float, keyboard_side: bool) -> Vector2:
+	if visual != PawVisual.PRESS:
+		return Vector2.UP.rotated(bone_rot)
+	var turn_scale := KEYBOARD_TURN_PAW_SCALE if keyboard_side else MOUSE_TURN_PAW_SCALE
+	var press_scale := KEYBOARD_PRESS_PAW_SCALE if keyboard_side else MOUSE_PRESS_PAW_SCALE
+	var progress := clampf(
+		(display_scale_x - turn_scale.x) / (press_scale.x - turn_scale.x),
+		0.0,
+		1.0
+	)
+	return Vector2.UP.rotated(bone_rot + PRESS_TUBE_TILT_RAD * progress)
 
 
 func _create_shoulder_backdrop() -> void:
