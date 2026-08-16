@@ -416,7 +416,9 @@ func _register_activity(mouse_activity: bool) -> void:
 	_last_activity = now
 	if mouse_activity:
 		_last_mouse_activity = now
-	if not _active and not mouse_activity:
+	# 拖到屏幕边缘停靠（躲起来）时，按键盘不再触发打字模式：桌宠已藏起，
+	# 必须等用户主动把她拖离边缘后才能再次进入键盘模式。
+	if not _active and not mouse_activity and not window.docking:
 		print("[DORO] work-mode TRIGGER by keyboard t=%d" % Time.get_ticks_msec())
 		_activate_work_mode()
 
