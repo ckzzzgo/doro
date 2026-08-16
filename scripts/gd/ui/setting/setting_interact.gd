@@ -2,8 +2,13 @@ extends Node
 
 @onready var _config: ConfigManager = get_node("/root/Config")
 @onready var _auto_starter = get_node("/root/AutoStarter")
-var _section: ConfigSection 
+var _section: ConfigSection
 var _app_name = ProjectSettings.get_setting("application/config/name")
+
+# dock_type 下拉框选项 id：0=吸附至边缘，1=吸附至任务栏。
+# dock_to_taskbar 是 bool，必须显式比较，不能把 int 直接塞进 bool。
+const DOCK_TYPE_EDGE := 0
+const DOCK_TYPE_TASKBAR := 1
 
 @onready var _chat_dialog: Window = get_node("/root/Node2D/GUI/ChatDialog")
 
@@ -56,7 +61,7 @@ func _load_config():
 	get_node("/root/Node2D").enable_docking = _section.get_prop(&"dock")
 	$Dock/OptionButton.select(_section.get_prop(&"dock_type"))
 	$Dock/OptionButton.set_disabled(not get_node("/root/Node2D").enable_docking)
-	get_node("/root/Node2D").dock_to_taskbar = _section.get_prop(&"dock_type")
+	get_node("/root/Node2D").dock_to_taskbar = _section.get_prop(&"dock_type") == DOCK_TYPE_TASKBAR
 	
 	$DropRemoveCheckBox.set_pressed_no_signal(_section.get_prop(&"drop_remove"))
 	get_node("/root/Node2D/GDCubismUserModel/DropRemover").enable = _section.get_prop(&"drop_remove")
@@ -75,7 +80,7 @@ func _update_dock(name, value):
 	get_node("/root/Node2D").enable_docking = value
 	
 func _update_dock_type(name, value):
-	get_node("/root/Node2D").dock_to_taskbar = value
+	get_node("/root/Node2D").dock_to_taskbar = value == DOCK_TYPE_TASKBAR
 	
 func _update_drop_remove(name, value):
 	get_node("/root/Node2D/GDCubismUserModel/DropRemover").enable = value
