@@ -209,7 +209,7 @@ func dock_to_edge(win_pos: Vector2i, thresh: float):
 			window_docking.emit(false, DOCK_NONE)
 			anim_controller.set_expression("Idle")
 			docking_time_counter.reset()
-		docking = true
+		docking = false
 		docking_dir = DOCK_NONE
 		return win_pos
 	elif win_cpos.x - thresh_pixel < screen_rect.position.x:
