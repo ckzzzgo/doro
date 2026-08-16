@@ -36,6 +36,7 @@ var docking_time_counter:TimeCounter = TimeCounter.new(dock_pop_expression_reset
 var window_scale: float = 1.0
 var drag_start_mouse_pos: Vector2i
 var drag_start_window_pos: Vector2i
+var _drag_hover_lost_frames: int = 0
 
 var fullscreen_check_timer = Timer.new()
 var is_other_app_fullscreen = false
@@ -57,6 +58,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	dock_pop()
+	_guard_drag_stuck()
 
 func _input(event: InputEvent) -> void:
 	# 左键拖动窗口：即使在输入模式（打字模仿）下也允许拖动，方便用户随时把
@@ -72,12 +74,9 @@ func _input(event: InputEvent) -> void:
 				dragging = true
 				drag_start_mouse_pos = mouseTracker.GetMousePosition()
 				drag_start_window_pos = get_tree().root.position
+				print("[DORO] DRAG press mouse=%s win=%s input_mode=%s t=%d" % [str(drag_start_mouse_pos), str(drag_start_window_pos), str(input_mode_active), Time.get_ticks_msec()])
 		else:
-			dragging = false
-			var rand_move = $GDCubismUserModel/Animation/EffectMove/EffectRandMove
-			if rand_move.enable:
-				rand_move.timer.set_paused(false)
-			window_pos_changed.emit("window_pos", get_tree().root.position)
+			_end_drag("release")
 		return
 
 	# 拖动过程中移动窗口：同样放到输入模式判定之前，否则打字模式下鼠标一动
@@ -92,6 +91,8 @@ func _input(event: InputEvent) -> void:
 		return
 
 	if input_mode_active:
+		if dragging:
+			print("[DORO] DRAG force-reset by input_mode gate t=%d" % Time.get_ticks_msec())
 		dragging = false
 		return
 
@@ -106,6 +107,33 @@ func _input(event: InputEvent) -> void:
 		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
 			decrease_window_size()
 			window_scale_changed.emit("window_scale", window_scale)
+
+## 结束一次拖动：与松开左键共用同一收尾逻辑，保证两条路径行为一致。
+func _end_drag(reason: String) -> void:
+	if not dragging:
+		return
+	dragging = false
+	var rand_move = $GDCubismUserModel/Animation/EffectMove/EffectRandMove
+	if rand_move.enable:
+		rand_move.timer.set_paused(false)
+	window_pos_changed.emit("window_pos", get_tree().root.position)
+	print("[DORO] DRAG end (%s) win=%s t=%d" % [reason, str(get_tree().root.position), Time.get_ticks_msec()])
+
+## 拖动过程中，若鼠标移出模型（模型被停靠推离窗口、或鼠标甩出窗口），窗口会
+## 被 MouseDetection 置为点击穿透（WS_EX_TRANSPARENT），此时松开的 WM_LBUTTONUP
+## 会被丢弃，dragging 将永远卡在 true —— 之后鼠标一旦回到模型上，窗口就会一直
+## 贴着鼠标跑。这里兜底：鼠标连续几帧不在模型上（即点击穿透已开启、抬起必被
+## 丢弃）时，主动收尾这次拖动。
+func _guard_drag_stuck() -> void:
+	if not dragging:
+		_drag_hover_lost_frames = 0
+		return
+	if mouseDetection.mouse_hovered:
+		_drag_hover_lost_frames = 0
+		return
+	_drag_hover_lost_frames += 1
+	if _drag_hover_lost_frames >= 3:
+		_end_drag("mouse-left-model")
 
 func increase_window_size():
 	window_scale += STEP_SIZE

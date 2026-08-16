@@ -407,10 +407,12 @@ func _register_activity(mouse_activity: bool) -> void:
 	if mouse_activity:
 		_last_mouse_activity = now
 	if not _active and not mouse_activity:
+		print("[DORO] work-mode TRIGGER by keyboard t=%d" % Time.get_ticks_msec())
 		_activate_work_mode()
 
 
 func _activate_work_mode() -> void:
+	print("[DORO] _activate_work_mode rand_move_was=%s is_moving=%s t=%d" % [str(rand_move.enable), str(move_effect.is_moving), Time.get_ticks_msec()])
 	_active = true
 	_active_since = _now()
 	_last_activity = _active_since
@@ -449,6 +451,7 @@ func _activate_work_mode() -> void:
 
 
 func _deactivate_work_mode() -> void:
+	print("[DORO] _deactivate_work_mode rand_move_was=%s t=%d" % [str(_rand_move_was_enabled), Time.get_ticks_msec()])
 	_active = false
 	_set_visuals_visible(false)
 
