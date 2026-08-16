@@ -97,6 +97,7 @@ var _saved_model_scale := Vector2.ONE
 var _saved_model_flip_h := false
 var _saved_body_opacity := 1.0
 var _rand_move_was_enabled := false
+var _was_docked := false
 var _mouse_follow: Node
 var _animation_tree: AnimationTree
 var _saved_head_follow_smoothing := 0.1
@@ -165,6 +166,15 @@ func _process(delta: float) -> void:
 	_lock_work_mode_facing_left()
 	if move_effect.is_moving:
 		move_effect.stop()
+	# 拖到屏幕边缘停靠时，键盘/手/桌子这些打字视觉件也要跟着身体一起躲起来，
+	# 与普通模式保持一致的"拖到边缘就躲起来"逻辑（键盘模式 / 普通模式统一）。
+	if window.docking != _was_docked:
+		_was_docked = window.docking
+		if window.docking:
+			_set_visuals_visible(false)
+		else:
+			_apply_work_pose()
+			_set_visuals_visible(true)
 	_update_paws(now, delta)
 	if now - _last_activity >= IDLE_TIMEOUT and now - _active_since >= MIN_ACTIVE_TIME:
 		_deactivate_work_mode()
@@ -443,11 +453,9 @@ func _activate_work_mode() -> void:
 	if move_effect.is_moving:
 		move_effect.stop()
 
-	model.position = Vector2(22, -25)
-	model.rotation = 0.0
-	_lock_work_mode_facing_left()
-	model.Body_group = 0.0
-	_set_visuals_visible(true)
+	_apply_work_pose()
+	_set_visuals_visible(not window.docking)
+	_was_docked = window.docking
 
 
 func _deactivate_work_mode() -> void:
@@ -476,6 +484,15 @@ func _lock_work_mode_facing_left() -> void:
 	if model.flip_h or model.scale.x < 0.0:
 		model.flip_h = false
 		model.scale = Vector2(0.30, 0.30)
+
+
+## 打字模仿时的基准姿态（桌面位 + 朝左 + 打字身体组）。激活工作模式和
+## 从屏幕边缘停靠恢复时复用，保证两处姿态一致。
+func _apply_work_pose() -> void:
+	model.position = Vector2(22, -25)
+	model.rotation = 0.0
+	_lock_work_mode_facing_left()
+	model.Body_group = 0.0
 
 
 ## 每帧：先推进两只爪子的腕骨状态（位置 + 朝向），再按当前贴图反算精灵
