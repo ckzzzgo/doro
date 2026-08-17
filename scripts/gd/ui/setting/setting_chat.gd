@@ -15,22 +15,32 @@ func _ready() -> void:
 	_load_config()
 
 func _bind_components():
-	_section.set_prop(&"url", "")
+	# 这几项的默认值一律取自场景里 OpenAIChatClient 节点上配好的值，不要写死成 ""。
+	#
+	# 原先全填空串，而 load_props() 的逻辑是"配置文件里没有就写入默认值"，于是首次运行
+	# 会把空串写进 config.ini，再由 _load_config() 回灌给客户端 —— 场景里配好的接口地址
+	# 和 Doro 人设在新机器上第一次打开就被清空了，聊天必然连不上、桌宠也没有性格设定。
+	# 而 config.ini 存在 user:// 里不随安装包分发，所以这个坑对每个新用户都会踩到。
+	# 客户端上这几个字段声明成 StringName，必须转成 String 再存：
+	# 绑定到 LineEdit 的值断言要求是 String，直接塞 StringName 会触发断言失败，
+	# 而且会以 &"..." 的形式写进 config.ini。
+	_section.set_prop(&"url", String(_chat_client.get_url()))
 	_section.bind(&"url").with(_update_url).to_line_edit($API/LineEdit)
-	
-	_section.set_prop(&"route", "")
+
+	_section.set_prop(&"route", String(_chat_client.get_route()))
 	_section.bind(&"route").with(_update_route).to_line_edit($Route/LineEdit)
-	
-	_section.set_prop(&"port", -1.0)
+
+	_section.set_prop(&"port", float(_chat_client.get_port()))
 	_section.bind(&"port").with(_update_port).to_spin_box($Port/SpinBox)
-	
+
+	# api_key 不设内置默认值：它是每个用户自己的凭据，不应随安装包分发
 	_section.set_prop(&"api_key", "")
 	_section.bind(&"api_key").with(_update_api_key).to_line_edit($Key/LineEdit)
-	
-	_section.set_prop(&"model_name", "")
+
+	_section.set_prop(&"model_name", String(_chat_client.get_model()))
 	_section.bind(&"model_name").with(_update_model_name).to_line_edit($Name/LineEdit)
-	
-	_section.set_prop(&"prompt", "")
+
+	_section.set_prop(&"prompt", _chat_client.get_prompt())
 	_section.bind(&"prompt").with(_update_prompt).to_text_edit($Prompt/TextEdit)
 	
 	_section.set_prop(&"thinking", false)
