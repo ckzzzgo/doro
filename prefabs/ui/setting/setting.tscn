@@ -408,8 +408,9 @@ caret_blink = true
 [node name="ThinkingCheckbox" type="CheckBox" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat"]
 layout_mode = 2
 size_flags_horizontal = 0
+tooltip_text = "只有部分接口认识这个参数。DeepSeek 等 OpenAI 兼容接口遇到它通常会直接报错，聊天会发不出去。不确定就别勾。"
 theme = ExtResource("1_nmrls")
-text = "深度思考"
+text = "深度思考（仅部分接口支持）"
 
 [node name="StreamCheckbox" type="CheckBox" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat"]
 layout_mode = 2

@@ -55,11 +55,44 @@ func set_prompt(prompt: String):
 func get_prompt():
 	return _prompt
 	
+## 接口地址只保留「协议 + 主机」。
+##
+## HTTPClient.connect_to_host 只接受主机名，用户若把 https://api.deepseek.com/v1 这类
+## 带路径的完整地址整个填进来，路径会被当成主机名的一部分去解析 —— 结果是连不上，
+## 而且从界面上完全看不出原因。路径部分属于「路由」，那有单独的设置项。
+##
+## 协议前缀必须保留：TLS 判定要靠它区分 https 与 http。
 func set_url(url: String):
-	_url = url
-	
+	_url = _host_only(url)
+
 func get_url():
 	return _url
+
+var _warned_dropped_path: String = ""
+
+func _host_only(url: String) -> String:
+	var rest := url.strip_edges()
+	var scheme := ""
+	var lower := rest.to_lower()
+	if lower.begins_with("https://"):
+		scheme = rest.substr(0, 8)
+		rest = rest.substr(8)
+	elif lower.begins_with("http://"):
+		scheme = rest.substr(0, 7)
+		rest = rest.substr(7)
+
+	var slash := rest.find("/")
+	if slash >= 0:
+		var dropped := rest.substr(slash)
+		rest = rest.substr(0, slash)
+		# 单个结尾斜杠是常见手误，不值得提示；真带了路径才说一声，且同一路径只说一次
+		if dropped != "/" and _warned_dropped_path != dropped:
+			_warned_dropped_path = dropped
+			push_warning(
+				"接口地址里的路径「%s」已被忽略：地址栏只填协议和域名，路径请填到「路由」里。" % dropped
+			)
+
+	return scheme + rest
 	
 func set_port(port: int):
 	_port = port
