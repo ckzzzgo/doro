@@ -611,31 +611,25 @@ func _make_style(fill: Color, border: Color, radius: float, border_width: int) -
 	return style
 
 
-func _load_png_texture(path: String) -> ImageTexture:
-	var file := FileAccess.open(path, FileAccess.READ)
-	if file == null:
-		push_error("Failed to open image asset: %s" % path)
+func _load_png_texture(path: String) -> Texture2D:
+	# 用资源加载系统（而非 FileAccess 直读 PNG），导出版与编辑器版均可用。
+	var texture := ResourceLoader.load(path) as Texture2D
+	if texture == null:
+		push_error("Failed to load image asset: %s" % path)
 		return ImageTexture.new()
-
-	var image := Image.new()
-	var load_error := image.load_png_from_buffer(file.get_buffer(file.get_length()))
-	if load_error != OK:
-		push_error("Failed to decode image asset %s: %s" % [path, error_string(load_error)])
-		return ImageTexture.new()
-	return ImageTexture.create_from_image(image)
+	return texture
 
 
-func _load_keyboard_texture() -> ImageTexture:
-	var file := FileAccess.open(KEYBOARD_TEXTURE_PATH, FileAccess.READ)
-	if file == null:
-		push_error("Failed to open keyboard asset: %s" % KEYBOARD_TEXTURE_PATH)
+func _load_keyboard_texture() -> Texture2D:
+	var texture := ResourceLoader.load(KEYBOARD_TEXTURE_PATH) as Texture2D
+	if texture == null:
+		push_error("Failed to load keyboard asset: %s" % KEYBOARD_TEXTURE_PATH)
 		return ImageTexture.new()
 
-	var image := Image.new()
-	var load_error := image.load_png_from_buffer(file.get_buffer(file.get_length()))
-	if load_error != OK:
-		push_error("Failed to decode keyboard asset: %s" % error_string(load_error))
-		return ImageTexture.new()
+	var image := texture.get_image()
+	if image == null:
+		push_error("Failed to read keyboard asset pixels: %s" % KEYBOARD_TEXTURE_PATH)
+		return texture
 
 	for y in range(image.get_height()):
 		for x in range(image.get_width()):

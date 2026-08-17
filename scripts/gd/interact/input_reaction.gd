@@ -810,18 +810,15 @@ func _set_visuals_visible(value: bool) -> void:
 	_right_paw.visible = value
 
 
-func _load_png_texture(path: String) -> ImageTexture:
-	var file := FileAccess.open(path, FileAccess.READ)
-	if file == null:
-		push_error("Failed to open input-reaction asset: %s" % path)
+func _load_png_texture(path: String) -> Texture2D:
+	# 用资源加载系统（而非 FileAccess 直读 PNG）：
+	# 导出版下 pck 内资源是导入后的格式（.ctex），FileAccess.open 源码 PNG 会失败，
+	# ResourceLoader 会自动解析 .import 映射，编辑器与导出版均可用。
+	var texture := ResourceLoader.load(path) as Texture2D
+	if texture == null:
+		push_error("Failed to load input-reaction asset: %s" % path)
 		return ImageTexture.new()
-
-	var image := Image.new()
-	var load_error := image.load_png_from_buffer(file.get_buffer(file.get_length()))
-	if load_error != OK:
-		push_error("Failed to decode input-reaction asset %s: %s" % [path, error_string(load_error)])
-		return ImageTexture.new()
-	return ImageTexture.create_from_image(image)
+	return texture
 
 
 func _now() -> float:
