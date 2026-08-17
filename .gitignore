@@ -10,6 +10,9 @@ config.ini
 # macOS
 .DS_Store
 
+# Godot 资源导入缓存（本地生成，不入库）
+*.import
+
 # C# 构建中间产物（本地构建，不入库；helpers/DoroInputBridge.exe 为运行时需要的功能产物，保留入库）
 helpers/bin/
 helpers/obj/

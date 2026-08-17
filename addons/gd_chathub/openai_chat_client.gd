@@ -107,7 +107,7 @@ func _process(delta: float) -> void:
 			_connecting = false
 			_connected = true
 			_send(_route, _pending_message, _pending_context)
-		elif elapsed >= _connect_timeout or status == HTTPClient.STATUS_ERROR or status == HTTPClient.STATUS_CANT_CONNECT:
+		elif elapsed >= _connect_timeout or status == HTTPClient.STATUS_CONNECTION_ERROR or status == HTTPClient.STATUS_CANT_CONNECT:
 			print("[DORO] chat connect failed (timeout=%s status=%s)" % [str(elapsed >= _connect_timeout), str(status)])
 			_connecting = false
 			_connected = false

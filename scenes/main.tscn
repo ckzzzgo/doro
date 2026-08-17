@@ -35,7 +35,7 @@
 [ext_resource type="Script" uid="uid://chga2u23wjved" path="res://scripts/gd/ui/chat_dialog/chat_dialog_window.gd" id="31_qkpxi"]
 [ext_resource type="PackedScene" uid="uid://3m0agg6dl5dn" path="res://prefabs/ui/chat_dialog.tscn" id="31_tel4y"]
 [ext_resource type="Script" uid="uid://c3br8tnavu4kp" path="res://scripts/gd/interact/drag_inertia.gd" id="34_drag"]
-[ext_resource type="Script" path="res://scripts/gd/interact/input_reaction.gd" id="35_input"]
+[ext_resource type="Script" uid="uid://drxpt7piw0iuw" path="res://scripts/gd/interact/input_reaction.gd" id="35_input"]
 
 [sub_resource type="Animation" id="Animation_jscy8"]
 length = 0.001
@@ -223,13 +223,13 @@ ParamExp7 = 0.0
 AnimLine = 1.0
 AnimLoading1 = 0.0
 AnimLoading2 = 1.0
-ParamAngleX = -11.2609
-ParamAngleY = -5.8088
-ParamAngleZ = 2.66493
+ParamAngleX = -12.8554
+ParamAngleY = 4.80032
+ParamAngleZ = 0.238772
 ParamBodyAngleY = 0.0
 ParamBodyAngleZ = 0.0
 ParamStep = 0.0
-ParamBreath = 0.0191514
+ParamBreath = 0.861944
 ParamBounceInput1 = 0.0
 ParamBounceInput2 = 0.0
 ParamBounceInput3 = 0.0
@@ -245,12 +245,12 @@ ParamMouthOpenY = 0.0
 ParamTongueOut = 0.0
 ParamMouthX = 0.0
 ParamMouthY = 0.0
-PhyAngleX = 0.0111921
-PhyAngleY = -0.0449539
-PhyHairX1 = 0.0251806
-PhyHairX2 = 0.00436052
-PhyHairY1 = -0.0854095
-PhyHairY2 = 0.00372472
+PhyAngleX = 0.00483326
+PhyAngleY = 0.0331001
+PhyHairX1 = 0.0157052
+PhyHairX2 = -0.00461484
+PhyHairY1 = 0.0674293
+PhyHairY2 = 0.00419012
 PhyIrisR1 = 0.0
 PhyIrisL1 = 0.0
 PhyIrisR2 = 0.0
@@ -339,17 +339,17 @@ root = NodePath("../..")
 script = ExtResource("34_drag")
 model = NodePath("..")
 
+[node name="DropRemover" type="Node" parent="GDCubismUserModel" node_paths=PackedStringArray("anim_controller")]
+script = ExtResource("28_2f3dj")
+enable = false
+anim_controller = NodePath("../Animation")
+
 [node name="InputReaction" type="Node2D" parent="." node_paths=PackedStringArray("model", "window", "move_effect", "rand_move")]
 script = ExtResource("35_input")
 model = NodePath("../GDCubismUserModel")
 window = NodePath("..")
 move_effect = NodePath("../GDCubismUserModel/Animation/EffectMove")
 rand_move = NodePath("../GDCubismUserModel/Animation/EffectMove/EffectRandMove")
-
-[node name="DropRemover" type="Node" parent="GDCubismUserModel" node_paths=PackedStringArray("anim_controller")]
-script = ExtResource("28_2f3dj")
-enable = false
-anim_controller = NodePath("../Animation")
 
 [node name="Particles" type="Node2D" parent="."]
 
@@ -456,9 +456,3 @@ y_offset = 80
 x_offset = -40
 
 [node name="ChatDialog" parent="GUI/ChatDialog" instance=ExtResource("31_tel4y")]
-
-[connection signal="window_docking" from="." to="GUI" method="_on_window_docking"]
-[connection signal="window_docking" from="." to="GUI/ChatDialog" method="_on_window_docking"]
-[connection signal="window_middle_click" from="." to="GUI" method="_on_window_middle_click"]
-[connection signal="hit" from="GDCubismUserModel/HitAreaHandler" to="GDCubismUserModel/Animation/EffectTouch" method="_on_hit_area"]
-[connection signal="hit_area_entered" from="GDCubismUserModel/HitAreaHandler" to="GDCubismUserModel/HitAreaHandler" method="_on_hit_area_entered"]
