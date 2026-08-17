@@ -39,4 +39,5 @@ func recalc_mouse_position(position):
 	return position
 
 func _on_hit_area_entered(model: GDCubismUserModel, id: String) -> void:
+	print("[HA] entered id=", id)
 	hit.emit(id, current_button_id)
