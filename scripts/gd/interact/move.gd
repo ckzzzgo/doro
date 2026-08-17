@@ -75,7 +75,7 @@ func stop():
 	if rand_move and rand_move.enable:
 		rand_move.timer.set_paused(false)
 
-func _get_movement_direction(target_pos: Vector2) -> int:
+func _get_movement_direction(target_pos: Vector2) -> bool:
 	var current_pos = get_tree().root.get_window().position
 	return target_pos.x > current_pos.x
 		

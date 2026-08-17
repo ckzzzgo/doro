@@ -4,15 +4,15 @@ using System.Runtime.InteropServices;
 
 public partial class WindowManager : Node
 {
-	// Windows API 导入
+	// Windows API 导入（64 位安全：窗口样式用 GetWindowLongPtr/SetWindowLongPtr）
 	[DllImport("user32.dll")]
 	private static extern IntPtr GetActiveWindow();
 	
-	[DllImport("user32.dll")]
-	private static extern int SetWindowLong(IntPtr hWnd, int nIndex, int dwNewLong); // 修改为int参数
+	[DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+	private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
 	
-	[DllImport("user32.dll")]
-	private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
+	[DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+	private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
 	
 	[DllImport("user32.dll")]
 	private static extern IntPtr GetForegroundWindow();
@@ -36,12 +36,12 @@ public partial class WindowManager : Node
 	private const int GwlExStyle = -20;
 	
 	// 点击穿透相关样式
-	private const uint WsExLayered = 0x00080000;
-	private const uint WsExTransparent = 0x00000020;
+	private const long WsExLayered = 0x00080000;
+	private const long WsExTransparent = 0x00000020;
 	
 	// 任务栏图标相关样式
-	private const int WS_EX_APPWINDOW = 0x00040000;
-	private const int WS_EX_TOOLWINDOW = 0x00000080;
+	private const long WS_EX_APPWINDOW = 0x00040000;
+	private const long WS_EX_TOOLWINDOW = 0x00000080;
 	
 	private IntPtr _hWnd;
 
@@ -53,44 +53,44 @@ public partial class WindowManager : Node
 
 	private void InitializeWindowStyle()
 	{
-		int currentStyle = GetWindowLong(_hWnd, GwlExStyle);
-		int newStyle = currentStyle | (int)WsExLayered; // 显式转换为int
-		SetWindowLong(_hWnd, GwlExStyle, newStyle);
+		long currentStyle = GetWindowLongPtr(_hWnd, GwlExStyle).ToInt64();
+		long newStyle = currentStyle | WsExLayered;
+		SetWindowLongPtr(_hWnd, GwlExStyle, new IntPtr(newStyle));
 	}
 
 	public void SetClickThrough(bool clickthrough)
 	{
 		if (_hWnd == IntPtr.Zero) return;
 		
-		int currentStyle = GetWindowLong(_hWnd, GwlExStyle);
+		long currentStyle = GetWindowLongPtr(_hWnd, GwlExStyle).ToInt64();
 		
-		currentStyle = currentStyle & ~((int)WsExLayered | (int)WsExTransparent); // 显式转换为int
+		currentStyle = currentStyle & ~(WsExLayered | WsExTransparent);
 		
 		if (clickthrough)
 		{
-			currentStyle = currentStyle | (int)(WsExLayered | WsExTransparent); // 显式转换为int
+			currentStyle = currentStyle | (WsExLayered | WsExTransparent);
 		}
 		else
 		{
-			currentStyle = currentStyle | (int)WsExLayered; // 显式转换为int
+			currentStyle = currentStyle | WsExLayered;
 		}
 		
 		currentStyle = currentStyle | WS_EX_TOOLWINDOW;
 		currentStyle = currentStyle & ~WS_EX_APPWINDOW;
 		
-		SetWindowLong(_hWnd, GwlExStyle, currentStyle); // 使用int参数
+		SetWindowLongPtr(_hWnd, GwlExStyle, new IntPtr(currentStyle));
 	}
 
 	public void HideTaskbarIcon()
 	{
 		if (_hWnd == IntPtr.Zero) return;
 		
-		int currentStyle = GetWindowLong(_hWnd, GwlExStyle);
+		long currentStyle = GetWindowLongPtr(_hWnd, GwlExStyle).ToInt64();
 		
 		currentStyle = currentStyle & ~WS_EX_APPWINDOW;
 		currentStyle = currentStyle | WS_EX_TOOLWINDOW;
 		
-		SetWindowLong(_hWnd, GwlExStyle, currentStyle); // 使用int参数
+		SetWindowLongPtr(_hWnd, GwlExStyle, new IntPtr(currentStyle));
 	}
 	
 	public bool IsOtherAppFullscreen()
