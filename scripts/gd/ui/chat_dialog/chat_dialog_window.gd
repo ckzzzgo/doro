@@ -17,16 +17,27 @@ const THINKING_TEXT := "思考中..."
 func _ready() -> void:
 	$"ChatDialog/CloseButton".pressed.connect(_on_close_button_pressed)
 
-func _process(delta: float) -> void:
+## 输入栏顶边在视口里的位置（基准 640 视口坐标）。
+## 与 main.tscn 里 Chatbar 的 offset_top 对应：GUI 挂在根 Node2D 下、受 Camera2D 影响，
+## 所以那里填的是世界坐标 -300，换到视口就是 -300 + 320 = 20。
+## 回复气泡要停在这条线上方，别压住输入栏。
+const CHATBAR_TOP_IN_VIEWPORT := 20.0
+
+func _process(_delta: float) -> void:
 	if visible:
 		var main_window_pos = DisplayServer.window_get_position()
 		var main_window_size = DisplayServer.window_get_size()
-		main_window_pos.x = main_window_pos.x - x_offset
-		main_window_pos.y = main_window_pos.y - y_offset
-		position = main_window_pos
+		var s: float = window.window_scale
+
 		size.x = main_window_size.x + 2 * x_offset
-		size.y = 100 * (window.window_scale + 0.5)
-		content_scale_factor = window.window_scale + 0.5
+		size.y = 100 * (s + 0.5)
+		content_scale_factor = s + 0.5
+		position.x = main_window_pos.x - x_offset
+
+		# 让气泡底边贴在输入栏顶边上方，y_offset 是两者之间的间隙。
+		# 输入栏在窗口内的像素位置随缩放变化，所以这里必须乘 window_scale 换算 ——
+		# 用固定偏移的话，换个缩放比例气泡就会压住输入栏。
+		position.y = main_window_pos.y + int(CHATBAR_TOP_IN_VIEWPORT * s) - y_offset - size.y
 
 func append_text(text: String):
 	#_buffer += text

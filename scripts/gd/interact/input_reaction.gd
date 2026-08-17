@@ -419,9 +419,20 @@ func _register_activity(mouse_activity: bool) -> void:
 		_last_mouse_activity = now
 	# 拖到屏幕边缘停靠（躲起来）时，按键盘不再触发打字模式：桌宠已藏起，
 	# 必须等用户主动把她拖离边缘后才能再次进入键盘模式。
-	if not _active and not mouse_activity and not window.docking:
+	#
+	# 另外，往桌宠自己的输入框里打字时也不进：这个模式表达的是「你在别的软件里干活，
+	# 我在旁边陪着」，对着她说话时进入它语义上就是错的。而且打字模式那套桌面图
+	# z_index 是 70、盖在 GUI（z_index 0）之上，会把聊天栏压住。
+	if not _active and not mouse_activity and not window.docking and not _own_text_field_focused():
 		DoroLog.d("[DORO] work-mode TRIGGER by keyboard t=%d" % Time.get_ticks_msec())
 		_activate_work_mode()
+
+
+## 桌宠自己的界面里是否有文本框正在接收输入（聊天输入框、设置里的各个输入框）。
+## 用焦点所有者判断而不是单独盯聊天栏，这样任何文本框都自动覆盖到。
+func _own_text_field_focused() -> bool:
+	var focused := get_viewport().gui_get_focus_owner()
+	return focused is LineEdit or focused is TextEdit
 
 
 func _activate_work_mode() -> void:
