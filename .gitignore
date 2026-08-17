@@ -6,3 +6,12 @@
 /export/
 
 config.ini
+
+# macOS
+.DS_Store
+
+# C# 构建中间产物（本地构建，不入库；helpers/DoroInputBridge.exe 为运行时需要的功能产物，保留入库）
+helpers/bin/
+helpers/obj/
+*.pdb
+*.user
