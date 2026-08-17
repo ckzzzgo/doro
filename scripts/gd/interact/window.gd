@@ -1,5 +1,7 @@
 extends Node2D
 
+const DoroLog = preload("res://scripts/gd/utils/debug_log.gd")
+
 @export var enable_window_drag:bool = true
 @export var enable_docking: bool = true
 @export var model: GDCubismUserModel
@@ -74,7 +76,7 @@ func _input(event: InputEvent) -> void:
 				dragging = true
 				drag_start_mouse_pos = mouseTracker.GetMousePosition()
 				drag_start_window_pos = get_tree().root.position
-				print("[DORO] DRAG press mouse=%s win=%s input_mode=%s t=%d" % [str(drag_start_mouse_pos), str(drag_start_window_pos), str(input_mode_active), Time.get_ticks_msec()])
+				DoroLog.d("[DORO] DRAG press mouse=%s win=%s input_mode=%s t=%d" % [str(drag_start_mouse_pos), str(drag_start_window_pos), str(input_mode_active), Time.get_ticks_msec()])
 		else:
 			_end_drag("release")
 		return
@@ -92,7 +94,7 @@ func _input(event: InputEvent) -> void:
 
 	if input_mode_active:
 		if dragging:
-			print("[DORO] DRAG force-reset by input_mode gate t=%d" % Time.get_ticks_msec())
+			DoroLog.d("[DORO] DRAG force-reset by input_mode gate t=%d" % Time.get_ticks_msec())
 		dragging = false
 		return
 
@@ -117,7 +119,7 @@ func _end_drag(reason: String) -> void:
 	if rand_move.enable:
 		rand_move.timer.set_paused(false)
 	window_pos_changed.emit("window_pos", get_tree().root.position)
-	print("[DORO] DRAG end (%s) win=%s t=%d" % [reason, str(get_tree().root.position), Time.get_ticks_msec()])
+	DoroLog.d("[DORO] DRAG end (%s) win=%s t=%d" % [reason, str(get_tree().root.position), Time.get_ticks_msec()])
 
 ## 拖动过程中，若鼠标移出模型（模型被停靠推离窗口、或鼠标甩出窗口），窗口会
 ## 被 MouseDetection 置为点击穿透（WS_EX_TRANSPARENT），此时松开的 WM_LBUTTONUP

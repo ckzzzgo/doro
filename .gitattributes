@@ -1,0 +1,3 @@
+# Godot 写出的文本资源一律使用 LF。显式声明行尾，避免各人的 core.autocrlf 设置
+# 不同导致 .import / .tscn / .gd 等文件反复出现"内容零差异但显示已修改"的幽灵改动。
+* text=auto eol=lf

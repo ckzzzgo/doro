@@ -7,6 +7,7 @@ extends Node2D
 
 const InputStageScript = preload("res://scripts/gd/interact/input_stage_v3.gd")
 const WorkArmsScript = preload("res://scripts/gd/interact/work_arms.gd")
+const DoroLog = preload("res://scripts/gd/utils/debug_log.gd")
 
 const LISTEN_PORT := 47329
 const PREVIEW_ARGUMENT := "--capture-input-preview"
@@ -419,12 +420,12 @@ func _register_activity(mouse_activity: bool) -> void:
 	# 拖到屏幕边缘停靠（躲起来）时，按键盘不再触发打字模式：桌宠已藏起，
 	# 必须等用户主动把她拖离边缘后才能再次进入键盘模式。
 	if not _active and not mouse_activity and not window.docking:
-		print("[DORO] work-mode TRIGGER by keyboard t=%d" % Time.get_ticks_msec())
+		DoroLog.d("[DORO] work-mode TRIGGER by keyboard t=%d" % Time.get_ticks_msec())
 		_activate_work_mode()
 
 
 func _activate_work_mode() -> void:
-	print("[DORO] _activate_work_mode rand_move_was=%s is_moving=%s t=%d" % [str(rand_move.enable), str(move_effect.is_moving), Time.get_ticks_msec()])
+	DoroLog.d("[DORO] _activate_work_mode rand_move_was=%s is_moving=%s t=%d" % [str(rand_move.enable), str(move_effect.is_moving), Time.get_ticks_msec()])
 	_active = true
 	_active_since = _now()
 	_last_activity = _active_since
@@ -461,7 +462,7 @@ func _activate_work_mode() -> void:
 
 
 func _deactivate_work_mode() -> void:
-	print("[DORO] _deactivate_work_mode rand_move_was=%s t=%d" % [str(_rand_move_was_enabled), Time.get_ticks_msec()])
+	DoroLog.d("[DORO] _deactivate_work_mode rand_move_was=%s t=%d" % [str(_rand_move_was_enabled), Time.get_ticks_msec()])
 	_active = false
 	_set_visuals_visible(false)
 

@@ -1,6 +1,8 @@
 extends Node
 class_name MoveEffect
 
+const DoroLog = preload("res://scripts/gd/utils/debug_log.gd")
+
 @export var enable: bool = true
 @export var window: Node2D
 @export var model: GDCubismUserModel
@@ -18,7 +20,7 @@ func _process(delta: float) -> void:
 	var prev_ok := ok_to_move
 	ok_to_move = enable and not window.dragging and not window.input_mode_active and (not window.docking or move_lock)
 	if ok_to_move != prev_ok:
-		print("[DORO] ok_to_move %s->%s (enable=%s drag=%s input_mode=%s docking=%s lock=%s t=%d)" % [str(prev_ok), str(ok_to_move), str(enable), str(window.dragging), str(window.input_mode_active), str(window.docking), str(move_lock), Time.get_ticks_msec()])
+		DoroLog.d("[DORO] ok_to_move %s->%s (enable=%s drag=%s input_mode=%s docking=%s lock=%s t=%d)" % [str(prev_ok), str(ok_to_move), str(enable), str(window.dragging), str(window.input_mode_active), str(window.docking), str(move_lock), Time.get_ticks_msec()])
 	if !ok_to_move:
 		stop()
 	
@@ -27,10 +29,10 @@ func move(target_pos: Vector2i, override: bool = false, pre_call: Callable = Cal
 	# 刚生效时（move._process 先于 InputReaction._process 运行），随机移动计时器
 	# 可能趁隙在 ok_to_move 尚未重算前触发 Run + 位移。这里做即时兜底。
 	if window.input_mode_active or window.dragging:
-		print("[DORO] move DENIED(fresh) input_mode=%s drag=%s t=%d" % [str(window.input_mode_active), str(window.dragging), Time.get_ticks_msec()])
+		DoroLog.d("[DORO] move DENIED(fresh) input_mode=%s drag=%s t=%d" % [str(window.input_mode_active), str(window.dragging), Time.get_ticks_msec()])
 		return
 	if not ok_to_move:
-		print("[DORO] move DENIED target=%s override=%s (drag=%s input_mode=%s docking=%s t=%d)" % [str(target_pos), str(override), str(window.dragging), str(window.input_mode_active), str(window.docking), Time.get_ticks_msec()])
+		DoroLog.d("[DORO] move DENIED target=%s override=%s (drag=%s input_mode=%s docking=%s t=%d)" % [str(target_pos), str(override), str(window.dragging), str(window.input_mode_active), str(window.docking), Time.get_ticks_msec()])
 		return
 
 	if override and not move_lock:
@@ -40,11 +42,11 @@ func move(target_pos: Vector2i, override: bool = false, pre_call: Callable = Cal
 		if rand_move.enable:
 			rand_move.timer.set_paused(false)
 	elif is_moving:
-		print("[DORO] move SKIP already-moving target=%s t=%d" % [str(target_pos), Time.get_ticks_msec()])
+		DoroLog.d("[DORO] move SKIP already-moving target=%s t=%d" % [str(target_pos), Time.get_ticks_msec()])
 		return
 
 	is_moving = true
-	print("[DORO] move START target=%s override=%s t=%d" % [str(target_pos), str(override), Time.get_ticks_msec()])
+	DoroLog.d("[DORO] move START target=%s override=%s t=%d" % [str(target_pos), str(override), Time.get_ticks_msec()])
 	_clear_tween()
 
 	var direction = _get_movement_direction(target_pos)
@@ -55,7 +57,7 @@ func move(target_pos: Vector2i, override: bool = false, pre_call: Callable = Cal
 
 	if pre_call.is_valid():
 		pre_call.call()
-		print("[DORO] move pre_call invoked t=%d" % Time.get_ticks_msec())
+		DoroLog.d("[DORO] move pre_call invoked t=%d" % Time.get_ticks_msec())
 
 	move_tween.tween_property(get_tree().root.get_window(), "position", target_pos, duration)
 	move_tween.finished.connect(_on_movement_finished.bind(post_call))
@@ -65,7 +67,7 @@ func stop():
 	# 调到这里）直接返回，避免每帧重复调用 _on_movement_finished 刷日志。
 	if not is_moving:
 		return
-	print("[DORO] move STOP interrupt t=%d" % Time.get_ticks_msec())
+	DoroLog.d("[DORO] move STOP interrupt t=%d" % Time.get_ticks_msec())
 	_clear_tween()
 	_on_movement_finished()
 	# 移动被中断（拖拽 / 停靠 / 进入打字模式 / 随机移动被禁用）：立即恢复
@@ -80,7 +82,7 @@ func _get_movement_direction(target_pos: Vector2) -> bool:
 	return target_pos.x > current_pos.x
 		
 func _on_movement_finished(post_call: Callable = Callable()):
-	print("[DORO] move FINISH t=%d" % Time.get_ticks_msec())
+	DoroLog.d("[DORO] move FINISH t=%d" % Time.get_ticks_msec())
 	is_moving = false
 	
 	if move_lock:
@@ -90,7 +92,7 @@ func _on_movement_finished(post_call: Callable = Callable()):
 		post_call.call()
 
 func _on_movement_started(direction):
-	print("[DORO] move STARTED dir=%s t=%d" % [str(direction), Time.get_ticks_msec()])
+	DoroLog.d("[DORO] move STARTED dir=%s t=%d" % [str(direction), Time.get_ticks_msec()])
 	model.flip_h = direction
 	
 func _clear_tween():

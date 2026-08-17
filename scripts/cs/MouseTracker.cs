@@ -1,5 +1,4 @@
 using Godot;
-using System;
 using System.Runtime.InteropServices;
 
 public partial class MouseTracker : Node
@@ -16,29 +15,14 @@ public partial class MouseTracker : Node
 	[DllImport("user32.dll")]
 	[return: MarshalAs(UnmanagedType.Bool)]
 	public static extern bool GetCursorPos(out POINT lpPoint);
-	
-	[DllImport("user32.dll")]
-	public static extern int GetSystemMetrics(int nIndex);
-	
+
+	/// 系统全局鼠标坐标。点击穿透窗口收不到鼠标消息，Godot 自身的鼠标位置可能不更新，
+	/// 所以窗口拖拽等逻辑一律用这里的 Win32 坐标算。
 	public Vector2I GetMousePosition()
 	{
 		if (GetCursorPos(out POINT point))
 		{
 			return new Vector2I(point.X, point.Y);
-		}
-		else
-		{
-			return Vector2I.Zero;
-		}
-	}
-	
-	public Vector2I GetMousePositionGlobal()
-	{
-		if (GetCursorPos(out POINT point))
-		{
-			int screenLeft = GetSystemMetrics(76); // SM_XVIRTUALSCREEN 获取虚拟屏幕的最左侧坐标
-			int screenTop = GetSystemMetrics(77);  // SM_YVIRTUALSCREEN 获取虚拟屏幕的最顶部坐标
-			return new Vector2I(point.X - screenLeft, point.Y - screenTop);
 		}
 		else
 		{

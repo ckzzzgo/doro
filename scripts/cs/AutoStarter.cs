@@ -1,81 +1,14 @@
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Text;
-using Godot;
 using System.Reflection;
+using Godot;
 
 public partial class AutoStarter : Node
 {
-	[ComImport]
-	[Guid("000214F9-0000-0000-C000-000000000046")]
-	[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-	private interface IShellLinkW
-	{
-		[PreserveSig] int GetPath(
-			[Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszFile,
-			int cchMaxPath, IntPtr pfd, uint fFlags);
-		
-		[PreserveSig] int GetIDList(out IntPtr ppidl);
-		[PreserveSig] int SetIDList(IntPtr pidl);
-		
-		[PreserveSig] int GetDescription(
-			[Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszName,
-			int cchMaxName);
-			
-		[PreserveSig] int SetDescription(
-			[MarshalAs(UnmanagedType.LPWStr)] string pszName);
-			
-		[PreserveSig] int GetWorkingDirectory(
-			[Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszDir,
-			int cchMaxPath);
-			
-		[PreserveSig] int SetWorkingDirectory(
-			[MarshalAs(UnmanagedType.LPWStr)] string pszDir);
-			
-		[PreserveSig] int GetArguments(
-			[Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszArgs,
-			int cchMaxPath);
-			
-		[PreserveSig] int SetArguments(
-			[MarshalAs(UnmanagedType.LPWStr)] string pszArgs);
-			
-		[PreserveSig] int GetHotkey(out short pwHotkey);
-		[PreserveSig] int SetHotkey(short wHotkey);
-		[PreserveSig] int GetShowCmd(out int piShowCmd);
-		[PreserveSig] int SetShowCmd(int iShowCmd);
-		
-		[PreserveSig] int GetIconLocation(
-			[Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszIconPath,
-			int cchIconPath, out int piIcon);
-			
-		[PreserveSig] int SetIconLocation(
-			[MarshalAs(UnmanagedType.LPWStr)] string pszIconPath, int iIcon);
-			
-		[PreserveSig] int SetRelativePath(
-			[MarshalAs(UnmanagedType.LPWStr)] string pszPathRel, uint dwReserved);
-			
-		[PreserveSig] int Resolve(IntPtr hwnd, uint fFlags);
-		[PreserveSig] int SetPath(
-			[MarshalAs(UnmanagedType.LPWStr)] string pszFile);
-	}
-
-	[ComImport]
-	[Guid("0000010b-0000-0000-C000-000000000046")]
-	[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-	private interface IPersistFile
-	{
-		void GetClassID(out Guid pClassID);
-		[PreserveSig]
-		int IsDirty();
-		void Load([MarshalAs(UnmanagedType.LPWStr)] string pszFileName, uint dwMode);
-		void Save([MarshalAs(UnmanagedType.LPWStr)] string pszFileName, bool fRemember);
-		void SaveCompleted([MarshalAs(UnmanagedType.LPWStr)] string pszFileName);
-		void GetCurFile([MarshalAs(UnmanagedType.LPWStr)] out string ppszFileName);
-	}
-
 	[DllImport("shell32.dll", CharSet = CharSet.Unicode)]
-	private static extern int SHGetKnownFolderPath([MarshalAs(UnmanagedType.LPStruct)] Guid rfid, uint dwFlags, IntPtr hToken, out string ppszPath);
+	private static extern int SHGetKnownFolderPath(
+		[MarshalAs(UnmanagedType.LPStruct)] Guid rfid, uint dwFlags, IntPtr hToken, out IntPtr ppszPath);
 
 	private static readonly Guid FOLDERID_Startup = new Guid("{B97D20BB-F46A-4C97-BA10-5E3608430854}");
 
@@ -85,7 +18,18 @@ public partial class AutoStarter : Node
 		if (string.IsNullOrEmpty(startupPath)) return;
 
 		string shortcutPath = Path.Combine(startupPath, appName + ".lnk");
-		string exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+
+		string exePath;
+		try
+		{
+			exePath = System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName;
+		}
+		catch (Exception ex)
+		{
+			// MainModule 在受限环境下会抛异常，原先这一句在 try 之外，会直接崩到调用方
+			GD.PushWarning($"读取当前进程路径失败，无法创建开机自启快捷方式: {ex.Message}");
+			return;
+		}
 
 		CreateShortcut(shortcutPath, exePath);
 	}
@@ -111,20 +55,36 @@ public partial class AutoStarter : Node
 		return File.Exists(shortcutPath);
 	}
 
+	// SHGetKnownFolderPath 返回的是 CoTaskMemAlloc 分配的缓冲区，调用方必须用
+	// CoTaskMemFree 释放。原先直接 marshal 成 out string，CLR 只会拷出一份托管字符串、
+	// 不释放原生内存，每次调用泄漏一小块。这里手动取字符串再释放。
 	private static string GetStartupFolderPath()
 	{
-		string path;
-		int result = SHGetKnownFolderPath(FOLDERID_Startup, 0, IntPtr.Zero, out path);
-		return result >= 0 ? path : null;
+		IntPtr ptr = IntPtr.Zero;
+		try
+		{
+			int hr = SHGetKnownFolderPath(FOLDERID_Startup, 0, IntPtr.Zero, out ptr);
+			if (hr < 0 || ptr == IntPtr.Zero) return null;
+			return Marshal.PtrToStringUni(ptr);
+		}
+		finally
+		{
+			if (ptr != IntPtr.Zero) Marshal.FreeCoTaskMem(ptr);
+		}
 	}
 
 	private static void CreateShortcut(string shortcutPath, string targetPath)
 	{
-		CoInitializeEx(IntPtr.Zero, COINIT.COINIT_APARTMENTTHREADED);
+		// CoInitializeEx 的返回值必须判断：Godot 可能已把主线程初始化成 MTA，此时请求
+		// STA 会返回 RPC_E_CHANGED_MODE（失败）。原先在 finally 里无条件 CoUninitialize，
+		// 相当于替 Godot 减掉一次 COM 引用计数。只有自己初始化成功才配对释放。
+		// 注意 S_FALSE(1) 表示"本线程已初始化过"，它也算成功，同样需要配对释放。
+		int hr = CoInitializeEx(IntPtr.Zero, COINIT.COINIT_APARTMENTTHREADED);
+		bool comInitialized = hr >= 0;
 		object shell = null;
-		
-		try {
-			// 使用Type.GetTypeFromProgID更可靠
+
+		try
+		{
 			Type shellLinkType = Type.GetTypeFromProgID("WScript.Shell");
 			if (shellLinkType == null)
 			{
@@ -138,45 +98,48 @@ public partial class AutoStarter : Node
 				GD.PushWarning("无法创建 WScript.Shell COM 实例");
 				return;
 			}
-			
-			// 通过IDispatch调用避免直接转换
+
+			// 通过 IDispatch 调用，避免直接做接口转换
 			dynamic shellLink = shell.GetType().InvokeMember(
-				"CreateShortcut", 
-				BindingFlags.InvokeMethod, 
-				null, 
-				shell, 
+				"CreateShortcut",
+				BindingFlags.InvokeMethod,
+				null,
+				shell,
 				new object[] { shortcutPath });
-			
+
 			shellLink.TargetPath = targetPath;
-			
+
 			string workingDirectory = Path.GetDirectoryName(targetPath);
 			if (!string.IsNullOrEmpty(workingDirectory))
 			{
 				shellLink.WorkingDirectory = workingDirectory;
 			}
-			
+
 			shellLink.Save();
 		}
 		catch (Exception ex)
 		{
 			GD.PushWarning($"创建开机自启快捷方式失败: {ex.Message}");
 		}
-		finally {
+		finally
+		{
 			if (shell != null && Marshal.IsComObject(shell))
 			{
 				Marshal.FinalReleaseComObject(shell);
 			}
-			CoUninitialize();
+			if (comInitialized)
+			{
+				CoUninitialize();
+			}
 		}
 	}
-	
-	// COM初始化API
+
 	[DllImport("ole32.dll")]
 	private static extern int CoInitializeEx(IntPtr pvReserved, COINIT dwCoInit);
-	
+
 	[DllImport("ole32.dll")]
 	private static extern void CoUninitialize();
-	
+
 	private enum COINIT : uint
 	{
 		COINIT_APARTMENTTHREADED = 0x2,
