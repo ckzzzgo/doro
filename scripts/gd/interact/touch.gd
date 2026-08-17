@@ -20,6 +20,10 @@ func _stroke(enable: bool, hit_id: String):
 				particle.emitting = true
 			"Leg_back_L":
 				controller.set_expression("Sullen")
+			_:
+				# 未命中特定区域时，任意位置右键抚摸也给出抚摸反应
+				controller.set_expression("SmileEyeClosed")
+				particle.emitting = true
 	else:
 		controller.set_expression("Idle")
 		particle.emitting = false
