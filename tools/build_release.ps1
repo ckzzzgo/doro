@@ -35,6 +35,10 @@ param(
     # 导出预设名，需与 export_presets.cfg 中的 name 一致
     [string]$Preset = "Windows Desktop",
 
+    # 公开的发布仓库。源码仓库是私有的，匿名请求它的 API 只会得到 404，
+    # 所以安装包与 version.json 都发到这个公开仓库，供「检查更新」匿名读取。
+    [string]$ReleaseRepo = "ckzzzgo/dororo-release",
+
     # 只组装不打 zip
     [switch]$SkipZip,
 
@@ -285,6 +289,30 @@ if ($SkipZip) {
         }
         Ok ("{0} 个条目，{1} MB" -f $z.Entries.Count, [Math]::Round((Get-Item $zipPath).Length / 1MB, 1))
     } finally { $z.Dispose() }
+
+    # ---------------------------------------------------------- version.json
+
+    Step "生成 version.json"
+
+    # 桌宠内的「检查更新」读的是公开发布仓库里的这个文件，而不是源码仓库的 GitHub API
+    # —— 源码仓库是私有的，匿名请求它的 API 只会得到 404。
+    $sha = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash.ToLower()
+    $size = (Get-Item $zipPath).Length
+    $verJson = [ordered]@{
+        version  = $version
+        released = (Get-Item $zipPath).LastWriteTime.ToString("yyyy-MM-dd")
+        notes_url = "https://github.com/$ReleaseRepo/releases/tag/v$version"
+        package  = [ordered]@{
+            name   = Split-Path $zipPath -Leaf
+            url    = "https://github.com/$ReleaseRepo/releases/download/v$version/" + (Split-Path $zipPath -Leaf)
+            size   = $size
+            sha256 = $sha
+        }
+    }
+    $verPath = Join-Path $exportDir "version.json"
+    ($verJson | ConvertTo-Json -Depth 4) | Set-Content -Path $verPath -Encoding utf8NoBOM
+    Ok ("已写出 {0}" -f $verPath)
+    Info ("sha256 = {0}" -f $sha)
 }
 
 # ------------------------------------------------------------------ 收尾
@@ -297,9 +325,20 @@ Write-Host ("全部检查通过（总耗时 {0:N0} 分 {1:N0} 秒）" -f `
 Write-Host ("  目录：{0}" -f $outDir)
 if (-not $SkipZip) { Write-Host ("  安装包：{0}" -f $zipPath) }
 Write-Host ""
-Write-Host "下一步（如需发版）：" -ForegroundColor DarkGray
-# 附件不要加 #显示名 后缀，让 GitHub 直接显示文件名（同样是为了不出现中文名）
-Write-Host ("  gh release create v{0} --target main --title `"Dororo v{0}`" --notes-file <说明文件> `"{1}`"" -f $version, $zipPath) -ForegroundColor DarkGray
+if (-not $SkipZip) {
+    Write-Host "下一步（发版，两件事都要做）：" -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host "  1) 把安装包发到公开仓库" -ForegroundColor DarkGray
+    # 附件不要加 #显示名 后缀，让 GitHub 直接显示文件名（同样是为了不出现中文名）
+    Write-Host ("     gh release create v{0} --repo {1} --title `"Dororo v{0}`" --notes-file <说明文件> `"{2}`"" -f `
+        $version, $ReleaseRepo, $zipPath) -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host "  2) 更新公开仓库里的 version.json —— 漏了这步，桌宠检查更新仍会说已是最新" -ForegroundColor DarkGray
+    Write-Host ("     把 {0} 提交到 {1} 的 main 分支根目录" -f (Join-Path $exportDir "version.json"), $ReleaseRepo) -ForegroundColor DarkGray
+    Write-Host ""
+    Write-Host "  3) 源码仓库打 tag（可选，便于对应版本）" -ForegroundColor DarkGray
+    Write-Host ("     git tag v{0} && git push origin v{0}" -f $version) -ForegroundColor DarkGray
+}
 Write-Host ""
 Write-Host "提醒：导出版与编辑器共用同一个配置文件" -ForegroundColor DarkGray
 Write-Host "  %APPDATA%\Godot\app_userdata\Dororo\config.ini" -ForegroundColor DarkGray
