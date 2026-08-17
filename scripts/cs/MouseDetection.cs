@@ -8,6 +8,11 @@ public partial class MouseDetection : Node
 	private WindowManager _api;
 	public bool mouse_hovered = false;
 	
+	// 节流：GetImage() 每帧从 GPU 拷贝整张纹理到 CPU 开销不小，
+	// 每 DETECT_FRAME_INTERVAL 个物理帧检测一次即可满足鼠标跟随需求。
+	private const int DETECT_FRAME_INTERVAL = 2;
+	private int _frame_counter = 0;
+	
 	[Signal]
 	public delegate void MouseEnteredEventHandler();
 	
@@ -24,10 +29,14 @@ public partial class MouseDetection : Node
 	}
 	
 	// it is better to detect the pixels only when rendered, so PhysicsProcess is recommended
-	// also can throttle the detection every few frames is possible
 	public override void _PhysicsProcess(double delta)
 	{
-		DetectPassthrough();
+		_frame_counter++;
+		if (_frame_counter >= DETECT_FRAME_INTERVAL)
+		{
+			_frame_counter = 0;
+			DetectPassthrough();
+		}
 	}
 
 	
