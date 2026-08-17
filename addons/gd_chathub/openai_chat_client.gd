@@ -30,7 +30,7 @@ func chat(message: String, context: Array[Dictionary] = []):
 	if _processing or _connecting:
 		return false
 
-	var err = _chat_http.connect_to_host(_url, _port)
+	var err = _chat_http.connect_to_host(_url, _port, _tls_options_for(_url, _port))
 	if err != OK:
 		_connected = false
 		_processing = false
@@ -42,6 +42,35 @@ func chat(message: String, context: Array[Dictionary] = []):
 	_pending_message = message
 	_pending_context = context
 	return true
+
+## 决定这次连接是否走 TLS。
+##
+## Godot 的 HTTPClient 只有显式传入 tls_options 才会加密，光把地址写成 https://
+## 是不会走 TLS 的 —— 而 _send() 的请求头里带着 Authorization: Bearer <api_key>，
+## 不加密就等于把 key 明文发上网。
+##
+## 判定保持保守：只有 https:// 或 443 端口才启用 TLS。默认配置指向本机 Ollama
+## （http://127.0.0.1），对它强制 TLS 会直接连不上，所以 http:// 一律保持明文。
+func _tls_options_for(url: String, port: int) -> TLSOptions:
+	var lower := url.to_lower()
+	if lower.begins_with("http://"):
+		_warn_if_key_exposed(url)
+		return null
+	if lower.begins_with("https://") or port == 443:
+		return TLSOptions.client()
+	_warn_if_key_exposed(url)
+	return null
+
+## 明文连接 + 非本机地址 + 配了 key，才提示：这种组合下 key 会明文出网。
+func _warn_if_key_exposed(url: String) -> void:
+	if _api_key.is_empty():
+		return
+	var host := url.to_lower().trim_prefix("http://").trim_prefix("https://")
+	if host.begins_with("127.0.0.1") or host.begins_with("localhost") or host.begins_with("[::1]"):
+		return
+	push_warning(
+		"聊天接口使用明文连接（%s），API key 会以明文发送。若目标支持 HTTPS，请把地址改为 https:// 或把端口设为 443。" % url
+	)
 
 func cancel():
 	_processing = false
@@ -70,11 +99,14 @@ func _send(api: String, message, context: Array[Dictionary] = []):
 			}
 		],
 		"stream": _stream,
-		"thinking": {
-			"type": "enabled" if _thinking else "disabled"
-		}
 	}
-	
+
+	# thinking 不是 OpenAI 兼容接口的标准字段，多数官方接口（DeepSeek 等）遇到未知
+	# 顶层参数会直接返回 400。这里与下面的 temperature / max_tokens 保持一致：
+	# 只在真正开启时才带上，关闭时干脆不发这个字段。
+	if _thinking:
+		data["thinking"] = {"type": "enabled"}
+
 	if _temperature_enable:
 		data["temperature"] = _temperature
 	

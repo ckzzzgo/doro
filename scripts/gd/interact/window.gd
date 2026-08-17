@@ -166,6 +166,12 @@ func bind_signals():
 	window_scale_changed.connect(config.on_window_config_change)
 	window_pos_changed.connect(config.on_window_config_change)
 	other_app_fullscreen.connect($StatusIndicator/PopupMenu._on_other_app_fullscreen)
+	# 这三条原先漏了：window_middle_click / window_docking 一直在 emit，但接收端的
+	# gui.gd、chat_dialog_window.gd 里那几个 _on_ 回调从没被连上，表现为中键点桌宠
+	# 没反应、停靠到屏幕边缘后工具栏和聊天框仍浮在原处不收起。
+	window_middle_click.connect($GUI._on_window_middle_click)
+	window_docking.connect($GUI._on_window_docking)
+	window_docking.connect($GUI/ChatDialog._on_window_docking)
 
 func set_up_fullscreen_detector():
 	fullscreen_check_timer.process_mode = Node.PROCESS_MODE_ALWAYS
