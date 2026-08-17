@@ -13,14 +13,19 @@ func _ready() -> void:
 	# 第二级原先也漏了，所以摸脸/摸腿分不开，永远只有兜底的"高兴"。
 	if hit_area:
 		hit_area.hit.connect(_on_hit_area)
+	else:
+		# 别静默失败：没接上就退化成"任意位置右键都只给高兴"，正是修复前的症状
+		push_warning("EffectTouch.hit_area 未设置，摸脸/摸腿将无法区分")
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and enable:
 		if event.button_index == MOUSE_BUTTON_RIGHT:
 			_stroke(event.is_pressed(), "")
 
-func _stroke(enable: bool, hit_id: String):
-	if enable:
+## 参数名刻意不叫 enable：本节点有个 @export var enable，同名参数会把它遮蔽，
+## 函数体内再想读那个开关就会静默拿到参数值。
+func _stroke(active: bool, hit_id: String):
+	if active:
 		current_hit_area = hit_id
 		match hit_id:
 			"Face":

@@ -16,8 +16,12 @@ func _ready() -> void:
 
 func _input(event):
 	if event is InputEventMouseButton:
-		pressed = event.is_pressed()
-		current_button_id = event.button_index
+		# 只跟踪左右键。滚轮事件在 Godot 里只有 pressed=true、没有配对的释放事件，
+		# 一并跟踪会让 pressed 在用户滚一次滚轮（调桌宠大小）之后永久卡在 true，
+		# 此后 _process 每帧都白跑一次命中检测、插件持续发 entered/exited 信号。
+		if event.button_index == MOUSE_BUTTON_LEFT or event.button_index == MOUSE_BUTTON_RIGHT:
+			pressed = event.is_pressed()
+			current_button_id = event.button_index
 
 func _process(_delta):
 	# set_target 必须在按住期间每帧调用：插件的 _target_update 每帧消费后即复位，

@@ -62,12 +62,18 @@ func _tls_options_for(url: String, port: int) -> TLSOptions:
 	return null
 
 ## 明文连接 + 非本机地址 + 配了 key，才提示：这种组合下 key 会明文出网。
+## 只提示一次：chat() 每发一条消息都会走到这里，否则会刷满日志。
+var _warned_plaintext_for: String = ""
+
 func _warn_if_key_exposed(url: String) -> void:
 	if _api_key.is_empty():
+		return
+	if _warned_plaintext_for == url:
 		return
 	var host := url.to_lower().trim_prefix("http://").trim_prefix("https://")
 	if host.begins_with("127.0.0.1") or host.begins_with("localhost") or host.begins_with("[::1]"):
 		return
+	_warned_plaintext_for = url
 	push_warning(
 		"聊天接口使用明文连接（%s），API key 会以明文发送。若目标支持 HTTPS，请把地址改为 https:// 或把端口设为 443。" % url
 	)
