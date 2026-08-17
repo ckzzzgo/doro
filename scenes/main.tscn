@@ -296,11 +296,12 @@ script = ExtResource("4_0ld40")
 controller = NodePath("..")
 blink_interval = 3.0
 
-[node name="EffectTouch" type="Node" parent="GDCubismUserModel/Animation" node_paths=PackedStringArray("controller", "model", "particle")]
+[node name="EffectTouch" type="Node" parent="GDCubismUserModel/Animation" node_paths=PackedStringArray("controller", "model", "particle", "hit_area")]
 script = ExtResource("5_gqmmt")
 controller = NodePath("..")
 model = NodePath("../..")
 particle = NodePath("../../../Particles/HeartParticles2D")
+hit_area = NodePath("../../HitAreaHandler")
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="GDCubismUserModel/Animation"]
 root_node = NodePath("../..")
