@@ -51,10 +51,16 @@ public partial class MouseDetection : Node
 		Image img = viewport.GetTexture().GetImage();
 		Rect2 rect = viewport.GetVisibleRect();
 		
-		// Getting the mouse position in the viewport
-		Vector2 mousePosition = viewport.GetMousePosition();
-		int viewX = (int) ((int)mousePosition.X + rect.Position.X);
+		// 用系统全局鼠标坐标换算窗口内偏移更可靠：点击透明穿透窗口下，
+		// viewport.GetMousePosition() 可能不随鼠标更新（窗口不接收鼠标消息）。
+		// 用 DisplayServer 全局坐标 + 窗口屏幕位置计算，穿透窗口也能正确检测。
+		Vector2I windowPos = DisplayServer.WindowGetPosition();
+		Vector2I screenMouse = DisplayServer.MouseGetPosition();
+		Vector2 mousePosition = new Vector2(
+			screenMouse.X - windowPos.X,
+			screenMouse.Y - windowPos.Y);
 
+		int viewX = (int) ((int)mousePosition.X + rect.Position.X);
 		int viewY = (int) ((int)mousePosition.Y + rect.Position.Y);
 
 		// Getting the mouse position relative to the image (image will be the size of the window)

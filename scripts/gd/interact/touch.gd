@@ -29,6 +29,5 @@ func _stroke(enable: bool, hit_id: String):
 		particle.emitting = false
 
 func _on_hit_area(id: String, button_id: int) -> void:
-	print("[TOUCH] hit area id=", id, " button=", button_id)
 	if button_id == MOUSE_BUTTON_RIGHT:
 		_stroke(true, id)
