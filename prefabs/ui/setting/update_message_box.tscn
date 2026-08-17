@@ -8,7 +8,7 @@
 [node name="UpdateMessageBox" type="Window"]
 title = "检查更新"
 initial_position = 2
-size = Vector2i(250, 180)
+size = Vector2i(340, 200)
 borderless = true
 script = ExtResource("3_gdvt3")
 
@@ -71,6 +71,13 @@ item_count = 1
 popup/item_0/text = "Github"
 popup/item_0/id = 0
 
+[node name="UpdateButton" type="Button" parent="NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer"]
+visible = false
+custom_minimum_size = Vector2(30, 30)
+layout_mode = 2
+tooltip_text = "下载新版本并自动替换，完成后会重新启动。"
+text = "立即更新"
+
 [node name="JumpButton" type="Button" parent="NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer"]
 visible = false
 custom_minimum_size = Vector2(30, 30)
@@ -82,5 +89,6 @@ custom_minimum_size = Vector2(30, 30)
 layout_mode = 2
 text = "返回"
 
+[connection signal="pressed" from="NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer/UpdateButton" to="." method="_on_update_button_pressed"]
 [connection signal="pressed" from="NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer/JumpButton" to="." method="_on_jump_button_pressed"]
 [connection signal="pressed" from="NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer/CancelButton" to="." method="_on_cancel_button_pressed"]

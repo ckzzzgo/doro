@@ -119,6 +119,14 @@ if (-not (Test-Path $cubism)) {
 }
 Ok "Live2D 原生库就位"
 
+# 两个辅助 exe 不由本脚本编译（改了 .cs 要先跑 helpers/build_helpers.ps1 并提交 exe）
+foreach ($h in @("helpers\DoroInputBridge.exe", "helpers\DoroUpdater.exe")) {
+    if (-not (Test-Path $h)) {
+        Fail "缺少辅助程序：$h`n     先运行 pwsh -File helpers/build_helpers.ps1 编译它们。"
+    }
+}
+Ok "辅助程序就位（输入桥 / 更新助手）"
+
 $icon = "app_icon.ico"
 if (-not (Test-Path $icon)) { Fail "缺少图标文件：$icon" }
 
@@ -238,15 +246,18 @@ if (Test-Path $outDir) { [System.IO.Directory]::Delete($outDir, $true) }
 
 Copy-Item $stageExe, $stagePck -Destination $outDir
 Copy-Item $cubism -Destination $outDir
-# 全局键盘/鼠标监听的小助手。它是 .NET Framework 编译的（Windows 10/11 自带 4.8），
-# 目标机器无需额外安装。程序按 exe 同级目录找它，所以必须散装放这里。
+# 两个辅助程序都是 .NET Framework 编译的（Windows 10/11 自带 4.8），目标机器无需
+# 额外安装。程序按 exe 同级目录找它们，所以必须散装放这里。
+#   DoroInputBridge  全局键盘/鼠标监听
+#   DoroUpdater      自动更新时替换安装目录（由主程序拷到 user:// 下再启动）
 Copy-Item "helpers\DoroInputBridge.exe" -Destination $outDir
+Copy-Item "helpers\DoroUpdater.exe" -Destination $outDir
 
-foreach ($f in @('dororo.exe','dororo.pck','libgd_cubism.windows.release.x86_64.dll','DoroInputBridge.exe')) {
+foreach ($f in @('dororo.exe','dororo.pck','libgd_cubism.windows.release.x86_64.dll','DoroInputBridge.exe','DoroUpdater.exe')) {
     if (-not (Test-Path (Join-Path $outDir $f))) { Fail "组装后缺少 $f" }
 }
 $fileCount = (Get-ChildItem $outDir -File).Count
-if ($fileCount -ne 4) { Fail "组装结果应为 4 个文件，实得 $fileCount 个" }
+if ($fileCount -ne 5) { Fail "组装结果应为 5 个文件，实得 $fileCount 个" }
 Ok ("{0} 个文件，{1} MB" -f $fileCount,
     [Math]::Round(((Get-ChildItem $outDir -File -Recurse | Measure-Object Length -Sum).Sum / 1MB), 0))
 
@@ -276,7 +287,7 @@ if ($SkipZip) {
     $z = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
     try {
         $names = $z.Entries | ForEach-Object { $_.FullName }
-        foreach ($f in @('dororo.exe','dororo.pck','libgd_cubism.windows.release.x86_64.dll','DoroInputBridge.exe')) {
+        foreach ($f in @('dororo.exe','dororo.pck','libgd_cubism.windows.release.x86_64.dll','DoroInputBridge.exe','DoroUpdater.exe')) {
             if ($names -notcontains "$pkgName/$f") { Fail "zip 内缺少 $f" }
         }
         Ok ("{0} 个条目，{1} MB" -f $z.Entries.Count, [Math]::Round((Get-Item $zipPath).Length / 1MB, 1))

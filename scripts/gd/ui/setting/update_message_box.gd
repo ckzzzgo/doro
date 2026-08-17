@@ -1,6 +1,6 @@
 extends Node
 
-## 检查更新。
+## 检查更新 / 自动更新。
 ##
 ## 版本信息读的是公开发布仓库里的 version.json，不是源码仓库的 GitHub API：
 ## 源码仓库是私有的，匿名请求它的 API 会返回 404（GitHub 对私有仓库故意不返回 403，
@@ -16,11 +16,25 @@ const RELEASES_URL := "https://github.com/ckzzzgo/dororo-release/releases/latest
 
 const MSG_PATH := "NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/Message"
 const JUMP_PATH := "NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer/JumpButton"
+const UPDATE_PATH := "NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer/UpdateButton"
+const CANCEL_PATH := "NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer/CancelButton"
+
+## 更新过程中用到的目录，放在 user:// 下 —— 必须在安装目录之外：
+## 安装目录整个会被替换掉，把安装包或助手放在里面等于自己抽自己的地毯。
+const WORK_DIR := "user://update"
 
 var http_request: HTTPRequest
 
-## 解析出来的最新版信息，留给后续的自动下载用（package.url / sha256 / size）
+## 解析出来的最新版信息（version / package.url / size / sha256）
 var latest_info: Dictionary = {}
+
+var _dl: HTTPRequest
+var _dl_path: String = ""
+var _busy := false
+## 仅在下载进行中为真。必须与 _busy 分开：下载完成后还要经历校验、拉起助手等步骤，
+## 若继续按下载进度刷文案，会把后续状态立刻覆盖掉 —— 用户只会看到界面永远停在
+## 「100%」，以为卡死了。
+var _downloading := false
 
 func _ready() -> void:
 	get_node("NinePatchRect/VBoxContainer/TitleBar").set_close_button_visibility(false)
@@ -67,6 +81,9 @@ func _on_request_completed(result: int, response_code: int, _headers, body: Pack
 	if is_update_available(current, latest):
 		_msg("发现新版本 v%s\n当前 v%s" % [latest, current])
 		get_node(JUMP_PATH).show()
+		# 只有拿到完整的下载信息、且本次是从真实安装目录运行时，才提供一键更新
+		if _can_self_update():
+			get_node(UPDATE_PATH).show()
 	else:
 		_msg("已是最新版本 v%s" % current)
 
@@ -86,10 +103,134 @@ static func is_update_available(current_version: String, latest_version: String)
 
 	return false
 
+# ------------------------------------------------------------------ 一键更新
+
+## 本次运行是否具备自动更新的条件。
+## 编辑器里跑没有安装目录可换；助手不在同级目录时也没法替换。
+func _can_self_update() -> bool:
+	if OS.has_feature("editor"):
+		return false
+	if not latest_info.has("package"):
+		return false
+	var pkg: Dictionary = latest_info["package"]
+	if not (pkg.has("url") and pkg.has("sha256")):
+		return false
+	return FileAccess.file_exists(_updater_source_path())
+
+## 测试用的覆盖点：留空则取 exe 所在目录（正常运行的行为）。
+## 有这个口子才能在不动真实安装目录的前提下端到端验证整条更新链路。
+var install_dir_override: String = ""
+
+func _install_dir() -> String:
+	if not install_dir_override.is_empty():
+		return install_dir_override
+	return OS.get_executable_path().get_base_dir()
+
+func _updater_source_path() -> String:
+	return _install_dir().path_join("DoroUpdater.exe")
+
+func _on_update_button_pressed() -> void:
+	if _busy:
+		return
+	_busy = true
+	get_node(UPDATE_PATH).disabled = true
+	get_node(JUMP_PATH).hide()
+
+	var pkg: Dictionary = latest_info["package"]
+	var name: String = str(pkg.get("name", "Dororo_update.zip"))
+
+	DirAccess.make_dir_recursive_absolute(WORK_DIR)
+	_dl_path = WORK_DIR.path_join(name)
+
+	_dl = HTTPRequest.new()
+	add_child(_dl)
+	# 直接落盘。104MB 的包不能先攒在内存里。
+	_dl.download_file = _dl_path
+	_dl.request_completed.connect(_on_download_completed)
+
+	_msg("正在下载新版本……")
+	_downloading = true
+	var err := _dl.request(str(pkg["url"]))
+	if err != OK:
+		_downloading = false
+		_fail("下载没能开始（错误码 %d）。" % err)
+
+func _process(_delta: float) -> void:
+	if not _downloading or _dl == null:
+		return
+	var got := _dl.get_downloaded_bytes()
+	if got <= 0:
+		return
+	var total := _dl.get_body_size()
+	if total > 0:
+		_msg("正在下载新版本…… %d%%\n%s / %s" % [
+			int(got * 100.0 / total), _size_text(got), _size_text(total)])
+	else:
+		_msg("正在下载新版本…… %s" % _size_text(got))
+
+## 小于 1MB 时用 KB，否则用 MB —— 否则几 KB 的包会显示成「0.0 / 0.0 MB」，看着像坏了。
+func _size_text(bytes: int) -> String:
+	if bytes < 1048576:
+		return "%.0f KB" % (bytes / 1024.0)
+	return "%.1f MB" % (bytes / 1048576.0)
+
+func _on_download_completed(result: int, response_code: int, _headers, _body) -> void:
+	_downloading = false
+	if result != HTTPRequest.RESULT_SUCCESS:
+		_fail("下载失败：连接中断，请检查网络后重试。")
+		return
+	if response_code != 200:
+		_fail("下载失败：服务器返回 %d。" % response_code)
+		return
+
+	_msg("正在校验安装包……")
+
+	var pkg: Dictionary = latest_info["package"]
+	var expect: String = str(pkg["sha256"]).to_lower()
+	var actual := FileAccess.get_sha256(_dl_path).to_lower()
+	if actual != expect:
+		# 校验不过一律放弃：宁可不更新，也不能把来源不明或损坏的包装上去
+		DirAccess.remove_absolute(_dl_path)
+		_fail("安装包校验不通过，已丢弃。\n请稍后重试或手动下载。")
+		return
+
+	# 助手必须从安装目录之外运行，否则替换到自己所在目录会失败
+	var updater := WORK_DIR.path_join("DoroUpdater.exe")
+	if DirAccess.copy_absolute(_updater_source_path(), updater) != OK:
+		_fail("无法准备更新助手。")
+		return
+
+	var args := PackedStringArray([
+		"--zip", ProjectSettings.globalize_path(_dl_path),
+		"--target", _install_dir(),
+		"--pid", str(OS.get_process_id()),
+	])
+	var pid := OS.create_process(ProjectSettings.globalize_path(updater), args)
+	if pid <= 0:
+		_fail("无法启动更新助手。")
+		return
+
+	_msg("即将重启完成更新……")
+	# 助手会等本进程退出后再替换文件并把新版拉起来
+	await get_tree().create_timer(0.8).timeout
+	get_tree().quit()
+
+func _fail(text: String) -> void:
+	_busy = false
+	_downloading = false
+	_msg(text)
+	get_node(UPDATE_PATH).disabled = false
+	get_node(JUMP_PATH).show()
+	if _dl:
+		_dl.queue_free()
+		_dl = null
+
 func _on_jump_button_pressed() -> void:
 	# 优先跳该版本的说明页，没有就跳 releases 列表
 	var url: String = str(latest_info.get("notes_url", RELEASES_URL))
 	OS.shell_open(url)
 
 func _on_cancel_button_pressed() -> void:
+	if _busy:
+		return
 	queue_free()
