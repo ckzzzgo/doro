@@ -134,8 +134,13 @@ $exportDir = Join-Path $root "export"
 $stageExe  = Join-Path $exportDir "dororo.exe"
 $stagePck  = Join-Path $exportDir "dororo.pck"
 $pubDir    = Join-Path $exportDir "dotnet_publish"
-$outDir    = Join-Path $exportDir "Dororo_v$version"
-$zipPath   = Join-Path $exportDir "Dororo_v$version.zip"
+# 发布包命名约定：纯 ASCII + 平台标识，解压出来的目录名与 zip 同名。
+# 不要往文件名里加中文，也不要用「绿色版」这类说法 —— 中文名在下载、解压、跨系统
+# 传递时容易乱码或被转义，而下载者真正需要的信息是平台。免配置这件事在发布说明
+# 正文里写「解压即用、无需安装运行库」即可。
+$pkgName   = "Dororo_v${version}_win"
+$outDir    = Join-Path $exportDir $pkgName
+$zipPath   = Join-Path $exportDir "$pkgName.zip"
 
 [void][System.IO.Directory]::CreateDirectory($exportDir)
 
@@ -276,7 +281,7 @@ if ($SkipZip) {
     try {
         $names = $z.Entries | ForEach-Object { $_.FullName }
         foreach ($f in @('dororo.exe','dororo.pck','libgd_cubism.windows.release.x86_64.dll','DoroInputBridge.exe','coreclr.dll','hostfxr.dll')) {
-            if ($names -notcontains "Dororo_v$version/$f") { Fail "zip 内缺少 $f" }
+            if ($names -notcontains "$pkgName/$f") { Fail "zip 内缺少 $f" }
         }
         Ok ("{0} 个条目，{1} MB" -f $z.Entries.Count, [Math]::Round((Get-Item $zipPath).Length / 1MB, 1))
     } finally { $z.Dispose() }
@@ -293,6 +298,7 @@ Write-Host ("  目录：{0}" -f $outDir)
 if (-not $SkipZip) { Write-Host ("  安装包：{0}" -f $zipPath) }
 Write-Host ""
 Write-Host "下一步（如需发版）：" -ForegroundColor DarkGray
+# 附件不要加 #显示名 后缀，让 GitHub 直接显示文件名（同样是为了不出现中文名）
 Write-Host ("  gh release create v{0} --target main --title `"Dororo v{0}`" --notes-file <说明文件> `"{1}`"" -f $version, $zipPath) -ForegroundColor DarkGray
 Write-Host ""
 Write-Host "提醒：导出版与编辑器共用同一个配置文件" -ForegroundColor DarkGray
