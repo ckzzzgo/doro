@@ -6,6 +6,8 @@
 
 Dororo是一款基于Godot的开源桌面宠物项目，其灵感来源于游戏《NIKKE：胜利女神》中的角色桃乐丝（Dorothy）。这个可爱的Q版生物形象源自近期网络上广为流传的一个流行Meme，它以一种幽默而独特的方式重新诠释了原角色。
 
+> 本项目由 [MelanTech/Dororo](https://github.com/MelanTech/Dororo) 衍生开发，整合了 Godot Live2D、gd-data-binding 等开源组件与多套键鼠视觉素材，并在此基础上持续迭代完善。
+
 # ✨ 介绍
 
 <div align="center">
@@ -66,13 +68,11 @@ Dororo是一款基于Godot的开源桌面宠物项目，其灵感来源于游戏
 * 在填写API地址与API路径时，须确保该API地址与API路径拼接后为正确的URL。错误示范：若API地址填写为 https://open.bigmodel.cn/ ，API路径填写为 /api/paas/v4/chat/completions，则API地址与API路径拼接后为 https://open.bigmodel.cn//api/paas/v4/chat/completions ，此时会由于拼接后的URL多出一个/导致无法访问API。
 * 若没有指定的端口号，则须将端口号置为-1，此时将使用默认的端口。
 
-# ⭐️ Star趋势
-![Star History Chart](https://api.star-history.com/svg?repos=MelanTech/Dororo&type=Date)
-
 # ⚠️ 版权和授权
-使用本项目代码请遵守项目[协议](https://github.com/MelanTech/Dororo/blob/master/LICENSE) ，请勿将该项目用于商业用途。
+本项目基于 [GPL-3.0](https://github.com/ckzzzgo/doro/blob/main/LICENSE) 协议开源，衍生自 [MelanTech/Dororo](https://github.com/MelanTech/Dororo)（其亦为 GPL-3.0）。使用、修改或分发本项目代码时，请遵守该协议，请勿将本项目用于商业用途。
 
 # ❤️ 鸣谢
+- 感谢 [MelanTech/Dororo](https://github.com/MelanTech/Dororo) 提供的开源桌面宠物项目基础。
 - 感谢 [0x4682B4](https://afdian.com/a/0x4682B4) 无私分享的 [Dororong Live2D](https://afdian.com/p/181458b4353211efa9f352540025c377) 模型，请注意模型作者与原型版权方的相关规定。
 - 感谢 [ibitsu_paint](https://x.com/ibitsu_paint) 提供的 [Doro 鼠标指针](https://x.com/ibitsu_paint/status/1788513498827518292) ，本项目修改了该鼠标指针中的美术资源作为软件图标。
 - 感谢 [MizunagiKB](https://github.com/MizunagiKB) 提供的 [Godot Live2D](https://github.com/MizunagiKB/gd_cubism/) 插件。
