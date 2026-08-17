@@ -7,7 +7,10 @@ extends Node
 ## 以免泄露仓库是否存在），所以旧实现永远只会显示「无法获取最新版本」，
 ## 而且提示语还把人往网络问题上引 —— 其实网络没有任何问题。
 ##
-## 另外 raw 地址没有 GitHub API 那样的每小时 60 次匿名限流，也不需要任何凭据。
+## 用 raw 地址而不是 GitHub API：raw 不需要任何凭据，也没有 API 那样明确的
+## 每小时 60 次匿名配额。但它同样有防滥用限流 —— 短时间内反复请求会返回 429，
+## 实测过。桌宠只在用户手动点检查更新时请求一次，正常使用撞不到，
+## 但代码仍需把 429 单独讲清楚，否则用户只会看到一个莫名的数字。
 const VERSION_URL := "https://raw.githubusercontent.com/ckzzzgo/dororo-release/main/version.json"
 const RELEASES_URL := "https://github.com/ckzzzgo/dororo-release/releases/latest"
 
@@ -42,6 +45,10 @@ func check_for_updates() -> void:
 func _on_request_completed(result: int, response_code: int, _headers, body: PackedByteArray) -> void:
 	if result != HTTPRequest.RESULT_SUCCESS:
 		_msg("检查更新失败：连接不上服务器，请检查网络。")
+		return
+
+	if response_code == 429:
+		_msg("检查更新太频繁被暂时限流了，\n过几分钟再试就好。")
 		return
 
 	if response_code != 200:
