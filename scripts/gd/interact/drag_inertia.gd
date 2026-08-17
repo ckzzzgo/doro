@@ -18,6 +18,14 @@ var param_y = null
 var current_velocity = Vector2.ZERO  # 使用Vector2存储当前速度
 var target_velocity = Vector2.ZERO   # 目标速度
 
+func _ready() -> void:
+	# GDCubismEffectCustom 的三个信号必须显式连接，否则下面的回调一个都不会被调用，
+	# 整个拖动惯性效果形同不存在（而 _input 仍在每帧计算速度做无用功）。
+	# 本节点是模型的子节点，_ready 先于模型自身的 _ready，来得及在模型初始化前接上。
+	cubism_init.connect(_on_cubism_init)
+	cubism_process.connect(_on_cubism_process)
+	cubism_term.connect(_on_cubism_term)
+
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT:

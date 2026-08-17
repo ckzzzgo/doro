@@ -14,7 +14,9 @@ class_name BaseChatClient
 @export var _max_token: int = -1
 @export var _temperature: float = -1
 
-@export var _connect_timeout: int = 1
+# 连接超时（秒）。原值 1 秒只够连本机端点；连远程 HTTPS 接口时，TLS 握手加跨境
+# 往返经常超过 1 秒，会被判定为连接失败。
+@export var _connect_timeout: int = 10
 
 var _connected: bool = false
 var _processing: bool = false

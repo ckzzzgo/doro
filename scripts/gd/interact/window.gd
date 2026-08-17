@@ -166,6 +166,12 @@ func bind_signals():
 	window_scale_changed.connect(config.on_window_config_change)
 	window_pos_changed.connect(config.on_window_config_change)
 	other_app_fullscreen.connect($StatusIndicator/PopupMenu._on_other_app_fullscreen)
+	# 这三条原先漏了：window_middle_click / window_docking 一直在 emit，但接收端的
+	# gui.gd、chat_dialog_window.gd 里那几个 _on_ 回调从没被连上，表现为中键点桌宠
+	# 没反应、停靠到屏幕边缘后工具栏和聊天框仍浮在原处不收起。
+	window_middle_click.connect($GUI._on_window_middle_click)
+	window_docking.connect($GUI._on_window_docking)
+	window_docking.connect($GUI/ChatDialog._on_window_docking)
 
 func set_up_fullscreen_detector():
 	fullscreen_check_timer.process_mode = Node.PROCESS_MODE_ALWAYS
@@ -274,24 +280,32 @@ func dock_pop():
 	if input_mode_active:
 		return
 
-	if docking and not dragging:
-		# 每帧保持停靠姿态（旋转 / 偏移 / Body_group / 朝向），防止打字模式退出
-		# 等路径把模型复位成未停靠的样子。
-		_set_dock_rotation(docking_dir)
-		model.Body_group = 0
-		model.flip_h = false
-		if mouseDetection.mouse_hovered:
-			_set_dock_position(docking_dir, true)
+	if not docking:
+		_set_dock_position(docking_dir)
+		return
 
+	# 每帧保持停靠姿态（旋转 / Body_group / 朝向），防止打字模式退出
+	# 等路径把模型复位成未停靠的样子。
+	_set_dock_rotation(docking_dir)
+	model.Body_group = 0
+	model.flip_h = false
+
+	# 拖动中必须继续保持探头位，绝不能缩回：探头时可抓区域是露出的一整条，
+	# 一旦按下左键就把模型缩回去，鼠标当场落到透明像素上 —— MouseDetection 会
+	# 开启点击穿透，抬起事件被系统丢弃，这次拖动随即被 _guard_drag_stuck 撤销。
+	# 结果就是"抓着她露出来的那截，怎么都拖不出边缘"。
+	if dragging or mouseDetection.mouse_hovered:
+		_set_dock_position(docking_dir, true)
+
+		# 拖动中不改表情：正在被拖走，探头的疑惑/生气递进没有意义。
+		if not dragging:
 			var count = docking_time_counter.get_count()
 			if count >= 6:
 				anim_controller.set_expression("DockPopAngry")
 			elif count >= 3:
 				anim_controller.set_expression("Doubt")
-		else:
-			anim_controller.set_expression("Idle")
-			_set_dock_position(docking_dir)
 	else:
+		anim_controller.set_expression("Idle")
 		_set_dock_position(docking_dir)
 
 func _set_dock_rotation(dir: int) -> void:

@@ -47,7 +47,16 @@ public partial class WindowManager : Node
 
 	public override void _Ready()
 	{
-		_hWnd = GetActiveWindow();
+		// 不能用 GetActiveWindow()：它只在「调用线程当前有活动窗口」时才返回句柄，
+		// 进程启动时窗口尚未获得焦点（开机自启、从后台拉起等）就会返回 NULL，
+		// 之后 SetClickThrough / HideTaskbarIcon 全被 _hWnd == Zero 的守卫挡掉，
+		// 点击穿透会全程静默失效。直接向 Godot 要真实窗口句柄，与焦点无关。
+		_hWnd = (IntPtr)DisplayServer.WindowGetNativeHandle(DisplayServer.HandleType.WindowHandle);
+		if (_hWnd == IntPtr.Zero)
+		{
+			GD.PushError("WindowManager: 取窗口句柄失败，点击穿透将无法工作");
+			return;
+		}
 		InitializeWindowStyle();
 	}
 
