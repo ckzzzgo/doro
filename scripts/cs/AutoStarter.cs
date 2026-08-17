@@ -121,11 +121,23 @@ public partial class AutoStarter : Node
 	private static void CreateShortcut(string shortcutPath, string targetPath)
 	{
 		CoInitializeEx(IntPtr.Zero, COINIT.COINIT_APARTMENTTHREADED);
+		object shell = null;
 		
 		try {
 			// 使用Type.GetTypeFromProgID更可靠
 			Type shellLinkType = Type.GetTypeFromProgID("WScript.Shell");
-			object shell = Activator.CreateInstance(shellLinkType);
+			if (shellLinkType == null)
+			{
+				GD.PushWarning("WScript.Shell COM 类型不可用，无法创建开机自启快捷方式");
+				return;
+			}
+
+			shell = Activator.CreateInstance(shellLinkType);
+			if (shell == null)
+			{
+				GD.PushWarning("无法创建 WScript.Shell COM 实例");
+				return;
+			}
 			
 			// 通过IDispatch调用避免直接转换
 			dynamic shellLink = shell.GetType().InvokeMember(
@@ -145,7 +157,15 @@ public partial class AutoStarter : Node
 			
 			shellLink.Save();
 		}
+		catch (Exception ex)
+		{
+			GD.PushWarning($"创建开机自启快捷方式失败: {ex.Message}");
+		}
 		finally {
+			if (shell != null && Marshal.IsComObject(shell))
+			{
+				Marshal.FinalReleaseComObject(shell);
+			}
 			CoUninitialize();
 		}
 	}

@@ -67,11 +67,9 @@ size_flags_horizontal = 3
 visible = false
 layout_mode = 2
 selected = 0
-item_count = 2
-popup/item_0/text = "百度网盘"
+item_count = 1
+popup/item_0/text = "Github"
 popup/item_0/id = 0
-popup/item_1/text = "Github"
-popup/item_1/id = 1
 
 [node name="JumpButton" type="Button" parent="NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer"]
 visible = false

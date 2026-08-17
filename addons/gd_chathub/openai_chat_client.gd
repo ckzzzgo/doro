@@ -8,71 +8,48 @@ var _last_http_status: int = 0
 var _temperature_enable: bool = false
 var _max_token_enable: bool = false
 
+# 非阻塞连接状态：_connecting 为 true 时，连接在 _process 中推进；
+# 连接成功后立即发送缓存的待发消息/上下文，全程不阻塞主线程。
+var _connecting: bool = false
+var _connect_start_time: float = 0.0
+var _pending_message: String = ""
+var _pending_context: Array = []
+
 func _ready() -> void:
 	_response_parser.on_thinking.connect(_emit_on_thinking)
 	_response_parser.on_response.connect(_emit_on_response)
 	_response_parser.on_error.connect(_emit_on_response)
 	_response_parser.on_finish.connect(_on_process_response_finished)
 
-func _connect():
+func _disconnect():
+	_chat_http.close()
+	_connected = false
+	_connecting = false
+
+func chat(message: String, context: Array[Dictionary] = []):
+	if _processing or _connecting:
+		return false
+
 	var err = _chat_http.connect_to_host(_url, _port)
 	if err != OK:
 		_connected = false
 		_processing = false
 		return false
-	
-	# 记录开始时间（秒）
-	var start_time = Time.get_ticks_msec() / 1000.0
-	
-	# 循环检查直到超时或连接成功
-	while true:
-		# 计算已经过去的时间
-		var elapsed_time = (Time.get_ticks_msec() / 1000.0) - start_time
-		
-		# 检查是否超时
-		if elapsed_time >= _connect_timeout:
-			_connected = false
-			_processing = false
-			return false
-		
-		# 检查当前连接状态
-		var status = _chat_http.get_status()
-		
-		# 如果已连接成功，退出循环
-		if status == HTTPClient.STATUS_CONNECTED:
-			break
-		
-		# 如果处于连接中或解析中状态，继续轮询
-		if status == HTTPClient.STATUS_CONNECTING or status == HTTPClient.STATUS_RESOLVING:
-			_chat_http.poll()
-		else:
-			# 其他错误状态
-			_connected = false
-			_processing = false
-			return false
-		
-		# 短暂延迟避免CPU占用过高
-		OS.delay_msec(10)
-	
-	# 连接成功
-	_connected = true
-	return true
-	
-func _disconnect():
-	_chat_http.close()
-	_connected = false
 
-func chat(message: String, context: Array[Dictionary] = []):
-	if not _connect():
-		return false
-	return _send(_route, message, context)
-	
+	# 非阻塞：记录待发消息，连接成功后由 _process 自动发送。
+	_connecting = true
+	_connect_start_time = Time.get_ticks_msec() / 1000.0
+	_pending_message = message
+	_pending_context = context
+	return true
+
 func cancel():
 	_processing = false
+	_connecting = false
 	_response_parser.clear_cache()
 	_disconnect()
 	_on_process_response_finished()
-	
+
 func _send(api: String, message, context: Array[Dictionary] = []):
 	if _processing:
 		return false
@@ -120,6 +97,27 @@ func _send(api: String, message, context: Array[Dictionary] = []):
 	return true
 	
 func _process(delta: float) -> void:
+	# 连接推进阶段：不阻塞主线程，按帧轮询连接状态，超时或失败时通知 UI。
+	if _connecting:
+		_chat_http.poll()
+		var status = _chat_http.get_status()
+		var elapsed = (Time.get_ticks_msec() / 1000.0) - _connect_start_time
+		
+		if status == HTTPClient.STATUS_CONNECTED:
+			_connecting = false
+			_connected = true
+			_send(_route, _pending_message, _pending_context)
+		elif elapsed >= _connect_timeout or status == HTTPClient.STATUS_ERROR or status == HTTPClient.STATUS_CANT_CONNECT:
+			print("[DORO] chat connect failed (timeout=%s status=%s)" % [str(elapsed >= _connect_timeout), str(status)])
+			_connecting = false
+			_connected = false
+			_processing = false
+			_response_parser.clear_cache()
+			_disconnect()
+			on_response.emit("错误：无法连接API")
+			on_finish.emit()
+		return
+
 	if _connected and _processing:
 		_chat_http.poll()
 		var http_status = _chat_http.get_status()

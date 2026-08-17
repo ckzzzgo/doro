@@ -1,8 +1,7 @@
 extends Node
 
-const API_URL = &"https://api.github.com/repos/MelanTech/Dororo/tags"
-const GITHUB_DOWNLOAD_URL = &"https://github.com/MelanTech/Dororo/releases"
-const BAIDU_DOWNLOAD_URL = &"https://pan.baidu.com/s/1vcUQAhGckp3TWiJTuUUc_A?pwd=zcye"
+const API_URL = &"https://api.github.com/repos/ckzzzgo/doro/tags"
+const GITHUB_DOWNLOAD_URL = &"https://github.com/ckzzzgo/doro/releases"
 
 var http_request: HTTPRequest
 
@@ -31,7 +30,7 @@ func _on_request_completed(result, response_code, headers, body):
 	
 	var parsed_res = JSON.parse_string(body.get_string_from_utf8())
 	
-	if parsed_res != null:
+	if parsed_res != null and not parsed_res.is_empty():
 		var current_version = ProjectSettings.get_setting("application/config/version")
 		var latest_version = parsed_res[0]["name"]
 		if is_update_available(current_version, latest_version):
@@ -65,11 +64,7 @@ func is_update_available(current_version: String, latest_version: String) -> boo
 	return latest_parts.size() > current_parts.size()
 	
 func _on_jump_button_pressed() -> void:
-	match $NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer/OptionButton.get_selected_id():
-		0:
-			OS.shell_open(BAIDU_DOWNLOAD_URL)
-		1:
-			OS.shell_open(GITHUB_DOWNLOAD_URL)
+	OS.shell_open(GITHUB_DOWNLOAD_URL)
 
 func _on_cancel_button_pressed() -> void:
 	queue_free()

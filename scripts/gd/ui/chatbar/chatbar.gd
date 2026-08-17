@@ -36,7 +36,10 @@ func _on_response(data: String):
 	chat_dialog.append_text(data)
 	
 func _on_finish():
-	context_manager.add_context(ContextManager.ROLE_ASSISTANT, chat_dialog.get_text())
+	var response_text = chat_dialog.get_text()
+	# 连接失败等异常路径下对话内容可能是错误提示，不应作为助手回复写入历史。
+	if not response_text.is_empty():
+		context_manager.add_context(ContextManager.ROLE_ASSISTANT, response_text)
 	send_btn.visible = true
 	stop_btn.visible = false
 

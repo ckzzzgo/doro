@@ -26,7 +26,7 @@ func _bind_components():
 	_section.bind(&"vsync").with(_update_vsync).to_check_box($VsyncCheckbox)
 	
 	_section.set_prop(&"msaa", false)
-	_section.bind(&"msaa").with(_update_vsync).to_check_box($MSAAContainer/MSAACheckBox)
+	_section.bind(&"msaa").with(_update_msaa).to_check_box($MSAAContainer/MSAACheckBox)
 	_section.bind(&"msaa").using(InvertBoolBindingConverter.new()).to($MSAAContainer/OptionButton, &"disabled")
 	
 	_section.set_prop(&"msaa_level", 0)
