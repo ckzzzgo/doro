@@ -137,7 +137,6 @@ if ($expVer -and $expVer.Matches[0].Groups[1].Value -ne $version) {
 $exportDir = Join-Path $root "export"
 $stageExe  = Join-Path $exportDir "dororo.exe"
 $stagePck  = Join-Path $exportDir "dororo.pck"
-$pubDir    = Join-Path $exportDir "dotnet_publish"
 # 发布包命名约定：纯 ASCII + 平台标识，解压出来的目录名与 zip 同名。
 # 不要往文件名里加中文，也不要用「绿色版」这类说法 —— 中文名在下载、解压、跨系统
 # 传递时容易乱码或被转义，而下载者真正需要的信息是平台。免配置这件事在发布说明
@@ -219,43 +218,36 @@ if (-not (PckContains $stagePck "Doro.moc3")) {
 }
 Ok "Live2D 模型已打进 pck"
 
-# ---------------------------------------------------- 自包含 .NET（散装一份）
-
-Step "dotnet publish（自包含）"
-
-# pck 里那份用于 Godot 内部加载，但原生宿主（coreclr/hostfxr）需要真实文件系统上的
-# 副本，所以另外发布一份散装放到 exe 同级目录 —— 这是 v1.0.1 已验证可用的布局。
-if (Test-Path $pubDir) { [System.IO.Directory]::Delete($pubDir, $true) }
-& $dotnetExe publish "Dororo.csproj" -c ExportRelease -r win-x64 --self-contained true -o $pubDir | Out-Null
-if ($LASTEXITCODE -ne 0) { Fail "dotnet publish 失败" }
-
-foreach ($f in @('coreclr.dll','hostfxr.dll','hostpolicy.dll','System.Private.CoreLib.dll','Dororo.dll','Dororo.runtimeconfig.json')) {
-    if (-not (Test-Path (Join-Path $pubDir $f))) { Fail "publish 产物缺少 $f" }
-}
-$rc = Get-Content (Join-Path $pubDir "Dororo.runtimeconfig.json") -Raw
-if ($rc -notmatch 'includedFrameworks') {
-    Fail "publish 不是自包含的（runtimeconfig 里没有 includedFrameworks），目标机器会需要自行安装 .NET"
-}
-Ok ("自包含 .NET 就位（{0} 个文件）" -f (Get-ChildItem $pubDir -File).Count)
-
 # ------------------------------------------------------------------ 组装
 
 Step "组装 $outDir"
 
+# 这里刻意不再单独跑 dotnet publish、也不往包里放散装的 .NET 运行时。
+#
+# Godot 导出时已经把自包含的 .NET 发布产物打进了 pck（第 3 步会校验），运行时由 Godot
+# 自己解压到 %LOCALAPPDATA%\data_Dororo_windows_x86_64 再加载。实测证据：
+#   - 进程里 coreclr/hostfxr/hostpolicy/clrjit/System.Private.CoreLib 全部从上述
+#     AppData 目录加载，没有一个来自程序目录；
+#   - 来自 C:\Program Files\dotnet 的模块数为 0，即不依赖系统安装的 .NET；
+#   - 删掉该 AppData 目录（模拟干净机器）后，仅用下面这 4 个文件仍能正常启动，
+#     且该目录会被重新解压出来。
+# 也就是说旧布局里那 76MB 散装 DLL 一个都没被加载，纯属死重量：整包因此从
+# 约 138MB 降到约 104MB，构建也少一步。
 if (Test-Path $outDir) { [System.IO.Directory]::Delete($outDir, $true) }
 [void][System.IO.Directory]::CreateDirectory($outDir)
 
 Copy-Item $stageExe, $stagePck -Destination $outDir
 Copy-Item $cubism -Destination $outDir
-# 全局键盘/鼠标监听的小助手。它是 .NET Framework 编译的，Windows 自带 4.8，
+# 全局键盘/鼠标监听的小助手。它是 .NET Framework 编译的（Windows 10/11 自带 4.8），
 # 目标机器无需额外安装。程序按 exe 同级目录找它，所以必须散装放这里。
 Copy-Item "helpers\DoroInputBridge.exe" -Destination $outDir
-Copy-Item (Join-Path $pubDir "*") -Destination $outDir -Recurse
 
-foreach ($f in @('dororo.exe','dororo.pck','libgd_cubism.windows.release.x86_64.dll','DoroInputBridge.exe','coreclr.dll','hostfxr.dll')) {
+foreach ($f in @('dororo.exe','dororo.pck','libgd_cubism.windows.release.x86_64.dll','DoroInputBridge.exe')) {
     if (-not (Test-Path (Join-Path $outDir $f))) { Fail "组装后缺少 $f" }
 }
-Ok ("{0} 个文件，{1} MB" -f (Get-ChildItem $outDir -File).Count,
+$fileCount = (Get-ChildItem $outDir -File).Count
+if ($fileCount -ne 4) { Fail "组装结果应为 4 个文件，实得 $fileCount 个" }
+Ok ("{0} 个文件，{1} MB" -f $fileCount,
     [Math]::Round(((Get-ChildItem $outDir -File -Recurse | Measure-Object Length -Sum).Sum / 1MB), 0))
 
 # ---------------------------------------------------------------- 换图标
@@ -284,7 +276,7 @@ if ($SkipZip) {
     $z = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
     try {
         $names = $z.Entries | ForEach-Object { $_.FullName }
-        foreach ($f in @('dororo.exe','dororo.pck','libgd_cubism.windows.release.x86_64.dll','DoroInputBridge.exe','coreclr.dll','hostfxr.dll')) {
+        foreach ($f in @('dororo.exe','dororo.pck','libgd_cubism.windows.release.x86_64.dll','DoroInputBridge.exe')) {
             if ($names -notcontains "$pkgName/$f") { Fail "zip 内缺少 $f" }
         }
         Ok ("{0} 个条目，{1} MB" -f $z.Entries.Count, [Math]::Round((Get-Item $zipPath).Length / 1MB, 1))
