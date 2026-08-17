@@ -11,6 +11,7 @@ const DOCK_TYPE_EDGE := 0
 const DOCK_TYPE_TASKBAR := 1
 
 @onready var _chat_dialog: Window = get_node("/root/Node2D/GUI/ChatDialog")
+@onready var _window_manager = get_node("/root/WindowManager")
 
 func _ready() -> void:
 	_section = _config.add_section(&"interact")
@@ -46,8 +47,7 @@ func _bind_components():
 func _load_config():
 	$PinCheckbox.set_pressed_no_signal(_section.get_prop(&"pin"))
 	get_node("/root/Node2D/GUI/Toolbar/Buttons/StickButton").set_pressed_no_signal(_section.get_prop(&"pin"))
-	get_tree().root.get_window().always_on_top = _section.get_prop(&"pin")
-	_chat_dialog.always_on_top = _section.get_prop(&"pin")
+	_apply_pin(_section.get_prop(&"pin"))
 	
 	$StrollCheckbox.set_pressed_no_signal(_section.get_prop(&"stroll"))
 	get_node("/root/Node2D/GUI/Toolbar/Buttons/InteractButton/InteractMenu/VBoxContainer/StrollCheckbox").set_pressed_no_signal(_section.get_prop(&"stroll"))
@@ -67,7 +67,21 @@ func _load_config():
 	get_node("/root/Node2D/GDCubismUserModel/DropRemover").enable = _section.get_prop(&"drop_remove")
 	
 func _update_pin(name, value):
+	_apply_pin(value)
+
+## 主窗口的置顶交给 WindowManager 用 SetWindowPos 施加。
+##
+## 光设 Godot 的 always_on_top 是不够的：WindowManager.SetClickThrough() 在鼠标每次
+## 移进/移出桌宠时都会重写整个窗口扩展样式，这个动作会把窗口挤出置顶层。实测无论
+## 开关如何，系统层面的 TOPMOST 位始终为 0 —— 也就是置顶从来没真正生效过，
+## 开与关在系统看来完全一样，这才是「置顶按钮点了没反应」的原因。
+##
+## 仍然同步 Godot 自己的标志，避免引擎内部状态与实际不符。聊天框是独立子窗口，
+## 不受上述样式重写影响，照旧用 Godot 的属性即可。
+func _apply_pin(value: bool) -> void:
 	get_tree().root.get_window().always_on_top = value
+	if _window_manager:
+		_window_manager.SetTopmost(value)
 	_chat_dialog.always_on_top = value
 	
 func _update_stroll(name, value):

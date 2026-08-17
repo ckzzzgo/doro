@@ -18,6 +18,17 @@ public partial class WindowManager : Node
 	[return: MarshalAs(UnmanagedType.Bool)]
 	private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
+	[DllImport("user32.dll")]
+	[return: MarshalAs(UnmanagedType.Bool)]
+	private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter,
+		int X, int Y, int cx, int cy, uint uFlags);
+
+	private static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
+	private static readonly IntPtr HWND_NOTOPMOST = new IntPtr(-2);
+	private const uint SWP_NOSIZE = 0x0001;
+	private const uint SWP_NOMOVE = 0x0002;
+	private const uint SWP_NOACTIVATE = 0x0010;
+
 	private struct RECT
 	{
 		public int Left;
@@ -38,6 +49,10 @@ public partial class WindowManager : Node
 	private const long WS_EX_TOOLWINDOW = 0x00000080;
 
 	private IntPtr _hWnd;
+
+	// 期望的置顶状态。必须由本类持有：SetClickThrough 每次重写扩展样式都会把窗口
+	// 挤出置顶层，写完得立刻按这个意图重新施加一次。
+	private bool _topmost = false;
 
 	public override void _Ready()
 	{
@@ -84,6 +99,36 @@ public partial class WindowManager : Node
 		currentStyle = currentStyle & ~WS_EX_APPWINDOW;
 
 		SetWindowLongPtr(_hWnd, GwlExStyle, new IntPtr(currentStyle));
+
+		// 关键：上面这次 SetWindowLongPtr 会把窗口挤出置顶层。本方法在鼠标每次
+		// 移进/移出桌宠时都会被调用，所以不在这里补一刀，置顶就会在一两帧内消失。
+		// 这正是「置顶按钮点了没反应」的真正原因 —— 开与关在系统看来都是不置顶。
+		ApplyTopmost();
+	}
+
+	/// 设置置顶。置顶必须走 SetWindowPos —— 往扩展样式里直接写 WS_EX_TOPMOST
+	/// 是不算数的（Win32 明确要求用 SetWindowPos 改变置顶层）。
+	public void SetTopmost(bool topmost)
+	{
+		_topmost = topmost;
+		ApplyTopmost();
+	}
+
+	public bool GetTopmost()
+	{
+		return _topmost;
+	}
+
+	private void ApplyTopmost()
+	{
+		if (_hWnd == IntPtr.Zero) return;
+
+		// SWP_NOACTIVATE：桌宠不该因为重设置顶而抢走焦点
+		SetWindowPos(
+			_hWnd,
+			_topmost ? HWND_TOPMOST : HWND_NOTOPMOST,
+			0, 0, 0, 0,
+			SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 	}
 
 	/// 前台窗口是否正好铺满它所在的那块屏幕。
