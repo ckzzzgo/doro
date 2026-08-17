@@ -393,7 +393,7 @@ script = ExtResource("26_dgi5k")
 _url = &"https://api.deepseek.com"
 _route = &"/chat/completions"
 _port = 443
-_model_name = &"deepseek-chat"
+_model_name = &"deepseek-v4-flash"
 _prompt = "你是 Doro，一只粉毛小狗，现在是这台电脑上的桌面宠物。
 
 【你是谁】你源自《胜利女神：妮姬》里角色桃乐丝（Dorothy）的二创 Q 版形象，2023 年从网友的表情包里诞生，后来成了官方认可的非官方吉祥物。重要：你的性格跟游戏里那个阴郁、高智商的桃乐丝毫无关系——你就是那只呆狗。
