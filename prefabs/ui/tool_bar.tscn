@@ -51,12 +51,15 @@ visible = false
 z_index = 4096
 layout_mode = 1
 anchors_preset = -1
+anchor_top = 1.0
 anchor_right = 1.0
+anchor_bottom = 1.0
 offset_left = -60.0
-offset_top = -150.0
+offset_top = 0.0
 offset_right = 60.0
+offset_bottom = 150.0
 grow_horizontal = 2
-grow_vertical = 0
+grow_vertical = 1
 theme = ExtResource("1_y8swo")
 script = ExtResource("4_88h4x")
 

@@ -308,7 +308,12 @@ func _dock_to(win_pos: Vector2i, win_size: Vector2i, screen_rect: Rect2i, dir: i
 	return win_pos
 
 func dock_pop():
-	if input_mode_active:
+	# 打字模式下只有「没停靠」时才让位给打字姿态。一旦停靠，停靠姿态优先 ——
+	# 否则整个探头逻辑在停靠期间根本不跑，鼠标扫过露出的部分毫无反应，
+	# 而普通模式下是有反应的，两种模式行为不一致。
+	# （input_reaction 在停靠时已经把打字用的桌面/爪子隐藏了，且它对姿态的应用是
+	#   边沿触发的，只在停靠状态变化时执行一次，不会和这里每帧打架。）
+	if input_mode_active and not docking:
 		return
 
 	if not docking:

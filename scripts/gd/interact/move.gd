@@ -18,12 +18,21 @@ var move_lock : bool = false  # 移动锁，结点持有该锁，运动将被优
 	
 func _process(delta: float) -> void:
 	var prev_ok := ok_to_move
-	ok_to_move = enable and not window.dragging and not window.input_mode_active and (not window.docking or move_lock)
+	ok_to_move = enable and not window.dragging and not window.input_mode_active and not _chat_open() and (not window.docking or move_lock)
 	if ok_to_move != prev_ok:
 		DoroLog.d("[DORO] ok_to_move %s->%s (enable=%s drag=%s input_mode=%s docking=%s lock=%s t=%d)" % [str(prev_ok), str(ok_to_move), str(enable), str(window.dragging), str(window.input_mode_active), str(window.docking), str(move_lock), Time.get_ticks_msec()])
 	if !ok_to_move:
 		stop()
 	
+## 聊天窗口开着时视为「正在对话」，此时不该乱跑：她一走，跟着窗口定位的聊天框
+## 也跟着跑，用户正在打的字就被拖着满屏移动。
+func _chat_open() -> bool:
+	var bar = window.get_node_or_null("GUI/Chatbar")
+	if bar != null and bar.visible:
+		return true
+	var dlg = window.get_node_or_null("GUI/ChatDialog")
+	return dlg != null and dlg.visible
+
 func move(target_pos: Vector2i, override: bool = false, pre_call: Callable = Callable(), post_call: Callable = Callable()):
 	# 直接读当前状态，避免依赖上一帧缓存的 ok_to_move：打字模式/拖拽在同一帧内
 	# 刚生效时（move._process 先于 InputReaction._process 运行），随机移动计时器
