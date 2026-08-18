@@ -162,7 +162,36 @@ func update_window():
 
 func load_config():
 	window_scale = config.get_window_config("window_scale", window_scale)
-	get_tree().root.position = config.get_window_config("window_pos", get_tree().root.position)
+	var saved_pos = config.get_window_config("window_pos", get_tree().root.position)
+	get_tree().root.position = _ensure_on_screen(saved_pos)
+
+
+## 保证恢复出来的窗口位置至少还落在某块屏幕上。
+##
+## 上次保存的位置是当时那套显示器布局下的坐标。副屏被拔掉/关掉、分辨率或缩放改变、
+## 多屏排布调整之后，那个坐标可能整个落到屏幕之外 —— 桌宠一启动就是隐形的，
+## 用户会以为程序没打开，而且鼠标根本够不着她。
+##
+## 判据用「窗口中心是否落在某块屏幕内」：中心在屏内就一定抓得住；只有一条边勉强
+## 露在屏幕上是够不着的，不算数。都不满足就放到主屏中央。
+func _ensure_on_screen(pos: Vector2i) -> Vector2i:
+	var size := Vector2i(
+		int(BASE_WINDOW_WIDTH * window_scale),
+		int(BASE_WINDOW_HEIGHT * window_scale))
+	var center := pos + size / 2
+
+	for i in DisplayServer.get_screen_count():
+		var r := Rect2i(DisplayServer.screen_get_position(i), DisplayServer.screen_get_size(i))
+		if r.has_point(center):
+			return pos
+
+	var scr := DisplayServer.get_primary_screen()
+	var sp := DisplayServer.screen_get_position(scr)
+	var ss := DisplayServer.screen_get_size(scr)
+	var fixed := sp + (ss - size) / 2
+	push_warning("上次保存的窗口位置 %s 已不在任何屏幕内（显示器布局变了？），改到主屏中央 %s"
+		% [str(pos), str(fixed)])
+	return fixed
 
 func bind_signals():
 	window_scale_changed.connect(config.on_window_config_change)
