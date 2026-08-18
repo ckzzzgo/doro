@@ -233,21 +233,9 @@ func dock_to_edge(win_pos: Vector2i, thresh: float):
 	var thresh_pixel = int(win_size.x * thresh)
 	var dis_mouse_win_cpos = DisplayServer.mouse_get_position().distance_to(get_tree().root.position + win_size / 2)
 
-	# 打字模式也允许拖到屏幕边缘触发停靠，但只更新停靠状态、不改动模型姿态 /
-	# Body_group / 表情（停靠姿态由 dock_pop 每帧维护），避免干扰打字模仿的可见性。
-	var reset_pose := not input_mode_active
-
 	if  dragging and (dis_mouse_win_cpos > win_size.x or dis_mouse_win_cpos > win_size.y):
 		# 当拖动时，鼠标距离窗口超出窗口大小时不停靠，防止窗口移不出当前屏幕
-		if reset_pose:
-			model.set_rotation_degrees(0)
-			model.position = Vector2.ZERO
-			model.Body_group = 1
-			window_docking.emit(false, DOCK_NONE)
-			anim_controller.set_expression("Idle")
-			docking_time_counter.reset()
-		docking = false
-		docking_dir = DOCK_NONE
+		_undock()
 		return win_pos
 	elif win_cpos.x - thresh_pixel < screen_rect.position.x:
 		# 左侧停靠
@@ -263,18 +251,35 @@ func dock_to_edge(win_pos: Vector2i, thresh: float):
 		return _dock_to(win_pos, win_size, screen_rect, DOCK_BOTTOM)
 	else:
 		# 不停靠
-		if reset_pose:
-			model.set_rotation_degrees(0)
-			model.position = Vector2.ZERO
-			model.Body_group = 1
-			window_docking.emit(false, DOCK_NONE)
-			anim_controller.set_expression("Idle")
-			docking_time_counter.reset()
-		docking = false
-		docking_dir = DOCK_NONE
+		_undock()
 		return win_pos
 
 	return win_pos
+
+## 解除停靠。两个分支（拖得太远 / 不在边缘范围内）共用同一套收尾。
+##
+## 刻意只复位姿态，不复位表情和「被打扰」计数：把她从边缘拖出来时，让她把当时的情绪
+## 一起带出来 —— 疑惑或生气会留在脸上，直到抚摸她才刷新。
+##
+## 这原本只是打字模式的副作用：那边因为姿态归打字模仿掌管、整段复位被跳过，情绪就顺带
+## 留了下来；而普通模式会立刻抹平。实际用起来「带着情绪被拖出来」明显更有生气，
+## 所以把普通模式也统一成这样。
+##
+## 计数不需要手动清：TimeCounter 在 dock_pop_expression_reset_time 秒内没有新的打扰
+## 就会自行归零，所以隔一会儿再去烦她，递进会从头开始。
+func _undock() -> void:
+	# 姿态（旋转 / 位移 / Body_group）只在普通模式复位。打字模式下这些由打字模仿掌管，
+	# 这里动它会把桌面、爪子的位置弄乱。
+	if not input_mode_active:
+		model.set_rotation_degrees(0)
+		model.position = Vector2.ZERO
+		model.Body_group = 1
+
+	# 这条是状态通知而非姿态动作，两种模式都该发 —— 原先它被关在 reset_pose 里，
+	# 打字模式下从来没发出过 false。
+	window_docking.emit(false, DOCK_NONE)
+	docking = false
+	docking_dir = DOCK_NONE
 
 func _dock_to(win_pos: Vector2i, win_size: Vector2i, screen_rect: Rect2i, dir: int) -> Vector2i:
 	docking = true
