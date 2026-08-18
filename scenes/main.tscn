@@ -30,7 +30,6 @@
 [ext_resource type="PackedScene" uid="uid://c7crjehg0e81v" path="res://prefabs/ui/setting/setting.tscn" id="26_vxglm"]
 [ext_resource type="Script" uid="uid://ulsqxff78cp0" path="res://scripts/gd/ui/setting/setting_window.gd" id="27_2f3dj"]
 [ext_resource type="Script" uid="uid://ctahbfjyc2lpd" path="res://addons/gd_chathub/context_manager.gd" id="27_j8jky"]
-[ext_resource type="Script" uid="uid://0ovcydbovbs8" path="res://scripts/gd/interact/drop_remove.gd" id="28_2f3dj"]
 [ext_resource type="PackedScene" uid="uid://belewrb1nqyk8" path="res://prefabs/ui/chat_bar.tscn" id="28_fv21b"]
 [ext_resource type="Script" uid="uid://chga2u23wjved" path="res://scripts/gd/ui/chat_dialog/chat_dialog_window.gd" id="31_qkpxi"]
 [ext_resource type="PackedScene" uid="uid://3m0agg6dl5dn" path="res://prefabs/ui/chat_dialog.tscn" id="31_tel4y"]
@@ -339,11 +338,6 @@ root = NodePath("../..")
 [node name="DragInertia" type="GDCubismEffectCustom" parent="GDCubismUserModel" node_paths=PackedStringArray("model")]
 script = ExtResource("34_drag")
 model = NodePath("..")
-
-[node name="DropRemover" type="Node" parent="GDCubismUserModel" node_paths=PackedStringArray("anim_controller")]
-script = ExtResource("28_2f3dj")
-enable = false
-anim_controller = NodePath("../Animation")
 
 [node name="InputReaction" type="Node2D" parent="." node_paths=PackedStringArray("model", "window", "move_effect", "rand_move")]
 script = ExtResource("35_input")

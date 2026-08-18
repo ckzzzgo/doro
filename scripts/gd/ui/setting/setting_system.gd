@@ -40,4 +40,4 @@ func _update_power_save(name, value):
 	OS.set_low_processor_usage_mode(value)
 		
 func _update_auto_hide(name, value):
-	get_node("/root/Node2D").set_fullscreen_status(_section.get_prop(&"auto_hide"))
+	get_node("/root/Node2D").set_fullscreen_status(value)

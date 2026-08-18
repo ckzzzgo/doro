@@ -9,7 +9,6 @@ const DoroLog = preload("res://scripts/gd/utils/debug_log.gd")
 @export var dock_thresh:float = 0.3
 @export var dock_pop_offset:int = 110
 @export var dock_pop_expression_reset_time:float = 30
-@export var dock_to_taskbar:bool = false
 
 const STEP_SIZE = 0.05
 const MIN_SCALE = 0.1
@@ -217,15 +216,10 @@ func set_fullscreen_status(status: bool):
 
 func dock_to_edge(win_pos: Vector2i, thresh: float):
 	var screen_index := DisplayServer.window_get_current_screen()
-	var screen_rect: Rect2i
-
-	if dock_to_taskbar:
-		screen_rect = DisplayServer.screen_get_usable_rect(screen_index)
-	else:
-		screen_rect = Rect2i(
-			DisplayServer.screen_get_position(screen_index),
-			DisplayServer.screen_get_size(screen_index)
-		)
+	# 一律按可用区域吸附，也就是贴任务栏那一边而不是屏幕物理边缘 —— 这就是原来
+	# 「吸附至任务栏」的默认行为。原先那个二选一的下拉框只影响贴哪条线，对用户
+	# 没有解释价值，已随设置项一起去掉。
+	var screen_rect := DisplayServer.screen_get_usable_rect(screen_index)
 
 	var win_size = DisplayServer.window_get_size()
 	var win_cpos = win_pos + win_size / 2

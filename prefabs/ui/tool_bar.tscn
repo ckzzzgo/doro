@@ -32,13 +32,6 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="StickButton" type="Button" parent="Buttons"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme = ExtResource("1_y8swo")
-toggle_mode = true
-text = "置顶"
-
 [node name="InteractButton" type="Button" parent="Buttons"]
 layout_mode = 2
 size_flags_horizontal = 3
@@ -54,11 +47,10 @@ anchors_preset = -1
 anchor_top = 1.0
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -60.0
 offset_top = 0.0
-offset_right = 60.0
-offset_bottom = 150.0
-grow_horizontal = 2
+offset_right = 98.0
+offset_bottom = 256.0
+grow_horizontal = 1
 grow_vertical = 1
 theme = ExtResource("1_y8swo")
 script = ExtResource("4_88h4x")
@@ -68,8 +60,17 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 6.0
+offset_top = 4.0
+offset_right = -6.0
+offset_bottom = -4.0
 grow_horizontal = 2
 grow_vertical = 2
+
+[node name="PinCheckbox" type="CheckBox" parent="Buttons/InteractButton/InteractMenu/VBoxContainer"]
+layout_mode = 2
+theme = ExtResource("1_y8swo")
+text = "置顶"
 
 [node name="StrollCheckbox" type="CheckBox" parent="Buttons/InteractButton/InteractMenu/VBoxContainer"]
 layout_mode = 2
@@ -80,6 +81,12 @@ text = "闲逛"
 layout_mode = 2
 theme = ExtResource("1_y8swo")
 text = "鼠标跟随"
+
+[node name="DockCheckbox" type="CheckBox" parent="Buttons/InteractButton/InteractMenu/VBoxContainer"]
+layout_mode = 2
+theme = ExtResource("1_y8swo")
+tooltip_text = "拖到屏幕上下左右任意一边时自动吸附藏起来"
+text = "边缘吸附"
 
 [node name="StatusButton" type="Button" parent="Buttons"]
 visible = false
@@ -108,6 +115,4 @@ theme = ExtResource("1_y8swo")
 text = "退出"
 
 [connection signal="toggled" from="Buttons/InteractButton" to="Buttons/InteractButton/InteractMenu" method="_on_interact_button_toggled"]
-[connection signal="toggled" from="Buttons/InteractButton/InteractMenu/VBoxContainer/StrollCheckbox" to="." method="_on_stroll_checkbox_toggled"]
-[connection signal="toggled" from="Buttons/InteractButton/InteractMenu/VBoxContainer/MouseFollowCheckbox" to="." method="_on_mouse_follow_checkbox_toggled"]
 [connection signal="pressed" from="Buttons/ExitButton" to="." method="_on_exit_button_pressed"]
