@@ -18,6 +18,7 @@
 //   6. 全过程写日志到 %LOCALAPPDATA%\Dororo\update.log —— 必须在安装目录之外，
 //      否则失败现场会连同目录一起被换掉，事后无从排查。
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -29,8 +30,14 @@ internal static class DoroUpdater
     private static readonly string[] RequiredFiles = { "dororo.exe", "dororo.pck" };
 
     private const int ParentWaitTimeoutMs = 30000;
-    private const int RenameRetryCount = 10;
-    private const int RenameRetryDelayMs = 500;
+    // 改名重试要给得足够宽：实测主进程退出后 0.5 秒目录就可改名，但真实更新时刚往同一个
+    // 文件夹里解压完 208MB，杀毒软件的实时扫描会持续占用一段时间（用户装在 Downloads 下
+    // 更明显）。原来 10 次 x 500ms = 5 秒不够，实机就是在这里失败的。
+    private const int RenameRetryCount = 40;
+    private const int RenameRetryDelayMs = 750;
+    // 等「从安装目录运行的进程」全部退出。只等被告知的那一个 pid 不够：用户可能开了
+    // 两个实例，或留有上一次的孤儿子进程，那些都锁着安装目录里的文件。
+    private const int OccupantWaitMs = 20000;
 
     private static StreamWriter _log;
 
@@ -85,6 +92,7 @@ internal static class DoroUpdater
             }
 
             WaitForParent(pid);
+            WaitForOccupants(target);
 
             string targetFull = Path.GetFullPath(target).TrimEnd(Path.DirectorySeparatorChar);
             string parent = Path.GetDirectoryName(targetFull);
@@ -112,7 +120,8 @@ internal static class DoroUpdater
             Log("改名 " + targetFull + " -> " + backup);
             if (!TryMove(targetFull, backup))
             {
-                Log("旧目录改名失败（可能有文件被占用），未做任何改动");
+                Log("旧目录改名失败，未做任何改动。下面列出还占着安装目录的东西：");
+                ReportBlockers(targetFull);
                 SafeDeleteDir(staging);
                 return Fail(7);
             }
@@ -193,6 +202,108 @@ internal static class DoroUpdater
         }
         // 给系统一点时间释放文件句柄，否则紧接着改名容易撞上占用
         Thread.Sleep(800);
+    }
+
+    /// 等所有「可执行文件位于安装目录内」的进程退出。
+    ///
+    /// 只等主进程那一个 pid 是不够的：用户可能同时开着两个实例，或者上一次运行留下的
+    /// 子进程还没退。这些进程都锁着安装目录里的文件，会让目录改名失败。
+    private static void WaitForOccupants(string target)
+    {
+        var sw = Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < OccupantWaitMs)
+        {
+            var occupants = FindOccupants(target);
+            if (occupants.Count == 0) return;
+
+            if (sw.ElapsedMilliseconds < 1000)
+                foreach (var o in occupants)
+                    Log("安装目录内仍有进程在跑，等它退出: " + o);
+
+            Thread.Sleep(500);
+        }
+
+        // 等不到就强制结束 —— 这些都是本程序自己的进程，用户点了更新即表示同意重启
+        foreach (var p in FindOccupantProcesses(target))
+        {
+            try
+            {
+                Log("等待超时，强制结束: " + p.ProcessName + " (pid " + p.Id + ")");
+                p.Kill();
+                p.WaitForExit(5000);
+            }
+            catch (Exception ex) { Log("  结束失败: " + ex.Message); }
+        }
+        Thread.Sleep(800);
+    }
+
+    /// 只可能是本程序自己的这几个进程占着安装目录。
+    /// 刻意不去遍历系统里所有进程：Process.MainModule 对受保护进程既慢又可能阻塞，
+    /// 放在每 500ms 的等待循环里会累积上万次调用，实测直接把助手卡死（第一版就是这样，
+    /// 连日志都没来得及写）。杀毒软件、资源管理器这类占用我们也无权结束，
+    /// 只在失败时单独报告即可。
+    private static readonly string[] OwnProcessNames = { "dororo", "DoroInputBridge" };
+
+    private static List<Process> FindOccupantProcesses(string target)
+    {
+        var found = new List<Process>();
+        int self = Process.GetCurrentProcess().Id;
+        foreach (string name in OwnProcessNames)
+        {
+            Process[] list;
+            try { list = Process.GetProcessesByName(name); }
+            catch { continue; }
+
+            foreach (Process p in list)
+            {
+                try
+                {
+                    if (p.Id == self) continue;
+                    string path = p.MainModule != null ? p.MainModule.FileName : null;
+                    if (path != null && IsSameOrInside(Path.GetDirectoryName(path), target))
+                        found.Add(p);
+                }
+                catch { /* 访问不到的进程（权限/已退出）跳过 */ }
+            }
+        }
+        return found;
+    }
+
+    private static List<string> FindOccupants(string target)
+    {
+        var names = new List<string>();
+        foreach (Process p in FindOccupantProcesses(target))
+        {
+            try { names.Add(p.ProcessName + " (pid " + p.Id + ")"); } catch { }
+        }
+        return names;
+    }
+
+    /// 改名失败后，尽量说清是谁挡着：先列进程，再逐个文件试独占打开，指出被占用的文件。
+    /// 没有这些信息，用户只会看到「更新失败」，而我们也无从判断该怎么改。
+    private static void ReportBlockers(string dir)
+    {
+        var procs = FindOccupants(dir);
+        if (procs.Count == 0)
+            Log("  没有进程的可执行文件位于安装目录内（可能是杀毒软件或资源管理器占用）");
+        else
+            foreach (var p in procs) Log("  仍在运行: " + p);
+
+        try
+        {
+            foreach (string f in Directory.GetFiles(dir))
+            {
+                try
+                {
+                    using (File.Open(f, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }
+                }
+                catch (Exception ex)
+                {
+                    Log("  文件被占用: " + Path.GetFileName(f) + "  (" + ex.GetType().Name + ")");
+                }
+            }
+        }
+        catch (Exception ex) { Log("  列举文件失败: " + ex.Message); }
     }
 
     /// 解压结果里真正的内容根目录。安装包顶层通常还套着一层
