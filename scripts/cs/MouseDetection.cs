@@ -49,7 +49,6 @@ public partial class MouseDetection : Node
 		Viewport viewport = GetViewport();
 		
 		Image img = viewport.GetTexture().GetImage();
-		Rect2 rect = viewport.GetVisibleRect();
 		
 		// 用系统全局鼠标坐标换算窗口内偏移更可靠：点击透明穿透窗口下，
 		// viewport.GetMousePosition() 可能不随鼠标更新（窗口不接收鼠标消息）。
@@ -60,12 +59,25 @@ public partial class MouseDetection : Node
 			screenMouse.X - windowPos.X,
 			screenMouse.Y - windowPos.Y);
 
-		int viewX = (int) ((int)mousePosition.X + rect.Position.X);
-		int viewY = (int) ((int)mousePosition.Y + rect.Position.Y);
+		// mousePosition 已经是「窗口像素」，要换算到「纹理像素」。
+		//
+		// 原实现除的是 viewport.GetVisibleRect()，那是**逻辑**视口尺寸 —— 本项目用
+		// canvas_items 拉伸，它恒为 640x640，与窗口缩放无关；而纹理尺寸等于窗口实际
+		// 尺寸。于是 img/rect 正好等于缩放比例，等价于把已经是窗口像素的鼠标坐标
+		// 又乘了一次缩放，缩得越小偏得越狠：
+		//   缩放 0.6 时鼠标在窗口正中(192,192) 采样点跑到 (115,115)
+		//   缩放 0.1 时鼠标在窗口正中(32,32)   采样点跑到 (3,3)
+		// 缩到最小时整个 64x64 窗口的采样点都被压进左上角 0~6 像素，那里永远透明，
+		// 于是永远检测不到悬停：不能拖、不能摸、点击穿透常开。而 window_scale 存在
+		// 配置里，重启后依旧如此。
+		//
+		// 正确的换算是「窗口尺寸 -> 纹理尺寸」。二者相等时即恒等，写成比例也能扛住
+		// 将来帧缓冲与窗口尺寸不一致的情况（例如 HiDPI）。
+		Vector2I windowSize = DisplayServer.WindowGetSize();
+		if (windowSize.X <= 0 || windowSize.Y <= 0) return;
 
-		// Getting the mouse position relative to the image (image will be the size of the window)
-		int x = (int)(img.GetSize().X * viewX / rect.Size.X);
-		int y = (int)(img.GetSize().Y * viewY / rect.Size.Y);
+		int x = (int)(mousePosition.X * img.GetSize().X / windowSize.X);
+		int y = (int)(mousePosition.Y * img.GetSize().Y / windowSize.Y);
 
 		// Getting the pixel at the mouse position coordinates
 		if (x < img.GetSize().X && x>=0 && y < img.GetSize().Y && y>=0)
