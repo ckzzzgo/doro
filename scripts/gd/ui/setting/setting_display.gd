@@ -50,10 +50,19 @@ func _migrate_old_keys() -> void:
 
 	var tier := TIER_STANDARD
 	if had_limit and old_limit == false:
-		# 原来是「不限制」，三个档位里最接近的是跟随显示器
+		# 原来是「不限制」，三个档位里最接近这个意图的是跟随显示器
 		tier = TIER_MONITOR
 	elif had_fps:
-		tier = TIER_POWER_SAVE if float(old_fps) <= 45.0 else TIER_STANDARD
+		# 按当初填的数值猜意图，而不是单纯找最近的数字：滑条能拉到 200，
+		# 拉那么高的人想要的是「越高越好」，对应跟随显示器；折算成 60 是吃亏的
+		# —— 在 60Hz 屏上看不出来，换到高刷屏就明显了。
+		var f := float(old_fps)
+		if f <= 45.0:
+			tier = TIER_POWER_SAVE
+		elif f <= 75.0:
+			tier = TIER_STANDARD
+		else:
+			tier = TIER_MONITOR
 	_config.set_value("display", "fps_tier", tier)
 
 ## 第三档的实际帧率取决于显示器，直接写进选项文字里，省得用户猜。
