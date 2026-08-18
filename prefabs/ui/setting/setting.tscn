@@ -144,69 +144,32 @@ text = "显示设置"
 layout_mode = 2
 theme = ExtResource("1_nmrls")
 
-[node name="MaxFPSContainer" type="HBoxContainer" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display"]
+[node name="FPSContainer" type="HBoxContainer" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display"]
 layout_mode = 2
 
-[node name="MaxFPSCheckbox" type="CheckBox" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display/MaxFPSContainer"]
+[node name="Label" type="Label" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display/FPSContainer"]
 layout_mode = 2
 size_flags_horizontal = 0
 theme = ExtResource("1_nmrls")
-text = "FPS限制"
+theme_type_variation = &"LabelItem"
+text = "帧率"
 
-[node name="HSpacer" type="Control" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display/MaxFPSContainer"]
+[node name="HSpacer" type="Control" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display/FPSContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="HSlider" type="HSlider" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display/MaxFPSContainer"]
-custom_minimum_size = Vector2(150, 0)
+[node name="OptionButton" type="OptionButton" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display/FPSContainer"]
+custom_minimum_size = Vector2(170, 25)
 layout_mode = 2
-size_flags_vertical = 4
+tooltip_text = "省电适合挂机整天；标准动作更顺一点；跟随显示器只对高刷屏有意义。"
 theme = ExtResource("1_nmrls")
-min_value = 30.0
-max_value = 200.0
-step = 10.0
-value = 30.0
-scrollable = false
-
-[node name="HSpacer2" type="Control" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display/MaxFPSContainer"]
-custom_minimum_size = Vector2(5, 0)
-layout_mode = 2
-
-[node name="Indicator" type="Label" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display/MaxFPSContainer"]
-custom_minimum_size = Vector2(50, 0)
-layout_mode = 2
-theme = ExtResource("1_nmrls")
-theme_type_variation = &"SliderIndicatorLabel"
-text = "30 FPS"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="VsyncCheckbox" type="CheckBox" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display"]
-layout_mode = 2
-size_flags_horizontal = 0
-theme = ExtResource("1_nmrls")
-text = "垂直同步"
-
-[node name="MSAAContainer" type="HBoxContainer" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display"]
-layout_mode = 2
-theme_override_constants/separation = 20
-
-[node name="MSAACheckBox" type="CheckBox" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display/MSAAContainer"]
-layout_mode = 2
-size_flags_horizontal = 2
-theme = ExtResource("1_nmrls")
-text = "MSAA"
-
-[node name="OptionButton" type="OptionButton" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display/MSAAContainer"]
-layout_mode = 2
-disabled = true
 selected = 0
 item_count = 3
-popup/item_0/text = "2x"
+popup/item_0/text = "省电（30 FPS）"
 popup/item_0/id = 0
-popup/item_1/text = "4x"
+popup/item_1/text = "标准（60 FPS）"
 popup/item_1/id = 1
-popup/item_2/text = "8x"
+popup/item_2/text = "跟随显示器"
 popup/item_2/id = 2
 
 [node name="Chat" type="VBoxContainer" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer"]
