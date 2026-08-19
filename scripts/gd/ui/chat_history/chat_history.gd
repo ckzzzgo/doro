@@ -13,6 +13,9 @@ extends NinePatchRect
 ## 只在打开时和每轮对话结束后重建，不做流式增量追加 —— 逐字冒出来的效果由气泡负责，
 ## 记录窗口要的是稳定可读。
 
+## 正文字色。比说话人那行的灰（LabelItem，0.64）更深，好让正文成为视觉重点。
+const BODY_COLOR := Color(0.28, 0.28, 0.3)
+
 const ROLE_LABEL := {
 	&"user": "人",
 	&"assistant": "Doro",
@@ -36,6 +39,7 @@ func refresh() -> void:
 
 	var history: Array = _context.get_context()
 	_empty_hint.visible = history.is_empty()
+	_empty_hint.add_theme_color_override("font_color", BODY_COLOR)
 
 	for entry in history:
 		if not entry is Dictionary:
@@ -55,15 +59,20 @@ func _make_entry(role: StringName, content: String) -> Control:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 2)
 
+	# 字色必须显式指定。settings 主题里 Label 的默认字色是纯白（那是给粉色标题栏用的），
+	# 而面板底色很浅 —— 不设的话正文就是白字压浅底，等于隐形。主题里可用的
+	# LabelItem 是 0.64 的灰，适合当次要文字，正文得更深一点才立得住。
 	var who := Label.new()
 	who.text = ROLE_LABEL.get(role, String(role))
 	who.theme_type_variation = &"LabelItem"
+	who.add_theme_font_size_override("font_size", 12)
 	box.add_child(who)
 
 	var body := Label.new()
 	body.text = content
 	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_theme_color_override("font_color", BODY_COLOR)
 	box.add_child(body)
 
 	var gap := Control.new()

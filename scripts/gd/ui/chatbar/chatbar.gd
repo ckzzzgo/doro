@@ -47,6 +47,9 @@ func _on_send_button_pressed():
 		_showing_error = false
 		_thinking_shown = false
 		context_manager.add_context(ContextManager.ROLE_USER, line_edit.text)
+		# 立刻刷一次记录窗口：不刷的话自己发的那句要等她回完才出现，
+		# 开着记录窗口时看起来就像「没同步进去」。
+		_history_window().refresh_if_open()
 		line_edit.clear()
 		chat_dialog.clear_text()
 		send_btn.visible = false
