@@ -59,6 +59,7 @@ internal static class DoroUpdater
         }
 
         OpenLog();
+        Banner();
         Log("==== 更新助手启动 ====");
         Log("zip=" + zip);
         Log("target=" + target);
@@ -117,8 +118,14 @@ internal static class DoroUpdater
             Log("新版内容位于 " + content);
 
             // ---- 切换。从这里开始出错必须回滚 ----
+            //
+            // 解压刚花了几秒，这几秒里情况可能已经变了 —— 最典型的是用户看到桌宠
+            // 突然消失、以为崩了，又去双击了一次。所以改名前重新清一次场，
+            // 而且在重试循环里持续清：只等一次是不够的。
+            KillOccupants(targetFull, "改名前清场");
+
             Log("改名 " + targetFull + " -> " + backup);
-            if (!TryMove(targetFull, backup))
+            if (!TryMove(targetFull, backup, i => { if (i % 4 == 3) KillOccupants(targetFull, "重试中发现新的占用"); }))
             {
                 Log("旧目录改名失败，未做任何改动。下面列出还占着安装目录的东西：");
                 ReportBlockers(targetFull);
@@ -223,18 +230,50 @@ internal static class DoroUpdater
             Thread.Sleep(500);
         }
 
-        // 等不到就强制结束 —— 这些都是本程序自己的进程，用户点了更新即表示同意重启
-        foreach (var p in FindOccupantProcesses(target))
+        KillOccupants(target, "等待超时");
+    }
+
+    /// 强制结束占着安装目录的自家进程。
+    ///
+    /// 用户点了「更新」就意味着同意重启，所以杀掉自己的进程是正当的。这一步存在的
+    /// 真正理由是：更新过程中桌宠会先消失几十秒，用户很容易以为它崩了而重新双击，
+    /// 那个新实例会一直锁着安装目录，让改名从头到尾失败。实测的一次失败就是这样 ——
+    /// 主进程按要求退了，7 秒后用户手动重开，之后 23 秒的重试全部落空。
+    private static void KillOccupants(string target, string reason)
+    {
+        var list = FindOccupantProcesses(target);
+        if (list.Count == 0) return;
+
+        foreach (var p in list)
         {
             try
             {
-                Log("等待超时，强制结束: " + p.ProcessName + " (pid " + p.Id + ")");
+                Log(reason + "，强制结束: " + p.ProcessName + " (pid " + p.Id + ")");
                 p.Kill();
                 p.WaitForExit(5000);
             }
             catch (Exception ex) { Log("  结束失败: " + ex.Message); }
         }
+        // 给系统一点时间真正释放句柄
         Thread.Sleep(800);
+    }
+
+    /// 开头打一条足够醒目的说明。
+    ///
+    /// 之前这个窗口只滚日志，用户看不出是什么东西、要多久、能不能动，于是在更新
+    /// 途中把桌宠重新打开，直接导致更新失败。窗口标题和横幅就是为了防这一下。
+    private static void Banner()
+    {
+        try { Console.Title = "Dororo 正在更新 —— 请勿重新打开桌宠"; } catch { }
+        Console.WriteLine();
+        Console.WriteLine("  ============================================");
+        Console.WriteLine("     Dororo 正在更新，请稍候");
+        Console.WriteLine();
+        Console.WriteLine("     桌宠会先关闭，更新完成后自动重新打开。");
+        Console.WriteLine("     这期间请不要手动打开桌宠，否则更新会失败。");
+        Console.WriteLine("     整个过程通常十几秒，本窗口会自己关闭。");
+        Console.WriteLine("  ============================================");
+        Console.WriteLine();
     }
 
     /// 只可能是本程序自己的这几个进程占着安装目录。
@@ -324,7 +363,7 @@ internal static class DoroUpdater
     }
 
     /// 目录改名。杀毒软件或残留句柄会让它短暂失败，所以重试几次再判定失败。
-    private static bool TryMove(string from, string to)
+    private static bool TryMove(string from, string to, Action<int> onRetry = null)
     {
         for (int i = 0; i < RenameRetryCount; i++)
         {
@@ -340,6 +379,7 @@ internal static class DoroUpdater
                     Log("改名失败（第 " + (i + 1) + " 次，放弃）: " + ex.Message);
                     return false;
                 }
+                if (onRetry != null) onRetry(i);
                 Thread.Sleep(RenameRetryDelayMs);
             }
         }

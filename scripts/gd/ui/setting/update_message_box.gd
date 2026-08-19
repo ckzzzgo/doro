@@ -196,9 +196,11 @@ func _on_download_completed(result: int, response_code: int, _headers, _body) ->
 
 	# 助手必须从安装目录之外运行，否则替换到自己所在目录会失败
 	var updater := WORK_DIR.path_join("DoroUpdater.exe")
-	if DirAccess.copy_absolute(_updater_source_path(), updater) != OK:
-		_fail("无法准备更新助手。")
-		return
+	if not _extract_updater_from_package(_dl_path, updater):
+		# 包里取不到就退回旧做法：用当前安装目录里那份
+		if DirAccess.copy_absolute(_updater_source_path(), updater) != OK:
+			_fail("无法准备更新助手。")
+			return
 
 	var args := PackedStringArray([
 		"--zip", ProjectSettings.globalize_path(_dl_path),
@@ -234,3 +236,39 @@ func _on_cancel_button_pressed() -> void:
 	if _busy:
 		return
 	queue_free()
+
+
+## 优先使用新版安装包里的更新助手，而不是当前安装目录里那份。
+##
+## 助手本身也会有 bug —— 1.1.4 升 1.1.5 那次失败就出在助手身上。如果永远用「已安装
+## 的」那份，助手的修复得等用户手动重装一次才生效：这一次更新用的仍是旧助手，
+## 等于修复永远慢一个版本，而且偏偏是在更新坏掉的时候没法靠更新修好。
+## 改成从刚下载的包里取，修复在下一次更新就能起作用。
+##
+## 包已经过 sha256 校验，里面的助手与官方发布的一致，可信。取不到则退回旧做法。
+func _extract_updater_from_package(zip_path: String, out_path: String) -> bool:
+	var reader := ZIPReader.new()
+	if reader.open(ProjectSettings.globalize_path(zip_path)) != OK:
+		return false
+
+	# 包内路径带版本号（Dororo_vX.Y.Z_win/DoroUpdater.exe），按结尾匹配
+	var entry := ""
+	for f in reader.get_files():
+		if f == "DoroUpdater.exe" or f.ends_with("/DoroUpdater.exe"):
+			entry = f
+			break
+	if entry.is_empty():
+		reader.close()
+		return false
+
+	var data := reader.read_file(entry)
+	reader.close()
+	if data.is_empty():
+		return false
+
+	var fa := FileAccess.open(out_path, FileAccess.WRITE)
+	if fa == null:
+		return false
+	fa.store_buffer(data)
+	fa.close()
+	return true
