@@ -33,7 +33,15 @@ internal static class DoroUpdater
     // 改名重试要给得足够宽：实测主进程退出后 0.5 秒目录就可改名，但真实更新时刚往同一个
     // 文件夹里解压完 208MB，杀毒软件的实时扫描会持续占用一段时间（用户装在 Downloads 下
     // 更明显）。原来 10 次 x 500ms = 5 秒不够，实机就是在这里失败的。
-    private const int RenameRetryCount = 40;
+    /// 单个文件改名的重试。文件级占用比目录级短得多，几秒足够。
+    private const int FileRetryCount = 12;
+    private const int FileRetryDelayMs = 500;
+
+    /// 整目录改名的重试窗口。刻意不长：这条路只是「顺利时更干净」的快捷方式
+    /// （一次改名，原子性好），挡住了就交给逐文件替换 —— 后者已实测能在目录被
+    /// 外部程序占住时照样完成。原来是 40 次 x 750ms = 30 秒，等于失败时先让用户
+    /// 干瞪眼半分钟才开始真正有用的动作。
+    private const int RenameRetryCount = 10;
     private const int RenameRetryDelayMs = 750;
     // 等「从安装目录运行的进程」全部退出。只等被告知的那一个 pid 不够：用户可能开了
     // 两个实例，或留有上一次的孤儿子进程，那些都锁着安装目录里的文件。
@@ -127,10 +135,34 @@ internal static class DoroUpdater
             Log("改名 " + targetFull + " -> " + backup);
             if (!TryMove(targetFull, backup, i => { if (i % 4 == 3) KillOccupants(targetFull, "重试中发现新的占用"); }))
             {
-                Log("旧目录改名失败，未做任何改动。下面列出还占着安装目录的东西：");
+                // 整个目录改名要求目录本身和里面每个文件都没有被打开，一个都不行。
+                // 实测有外部程序（杀软扫刚下载的安装包、或资源管理器开着那个文件夹）
+                // 会短暂占住，一次持续了 30 秒以上，重试窗口再长也只是碰运气。
+                //
+                // 逐文件替换的要求低得多：只需要那一个文件此刻可动，而杀毒软件打开
+                // 文件时通常带 FILE_SHARE_DELETE（否则它一扫描就会弄坏别的程序），
+                // 所以扫描期间改名往往仍然能成。真正的安装程序也是这么做的。
+                Log("整目录改名失败，改用逐文件替换");
                 ReportBlockers(targetFull);
+                if (!ReplaceFileByFile(content, targetFull))
+                {
+                    Log("逐文件替换也失败，未做任何改动");
+                    SafeDeleteDir(staging);
+                    RelaunchAfterFailure(targetFull, relaunch);
+                    return Fail(7);
+                }
+                if (!HasRequiredFiles(targetFull))
+                {
+                    Log("逐文件替换后关键文件不齐");
+                    SafeDeleteDir(staging);
+                    RelaunchAfterFailure(targetFull, relaunch);
+                    return Fail(9);
+                }
+                Log("逐文件替换完成，关键文件齐全");
                 SafeDeleteDir(staging);
-                return Fail(7);
+                Relaunch(targetFull, relaunch);
+                Log("==== 更新成功 ====");
+                return Done(0);
             }
 
             Log("改名 " + content + " -> " + targetFull);
@@ -142,6 +174,7 @@ internal static class DoroUpdater
                 else
                     Log("回滚也失败了！旧目录仍在 " + backup + "，需手动改回 " + targetFull);
                 SafeDeleteDir(staging);
+                RelaunchAfterFailure(targetFull, relaunch);
                 return Fail(8);
             }
 
@@ -155,6 +188,7 @@ internal static class DoroUpdater
                         Log("回滚成功");
                     else
                         Log("回滚失败！旧目录在 " + backup);
+                    RelaunchAfterFailure(targetFull, relaunch);
                     return Fail(9);
                 }
             }
@@ -164,24 +198,9 @@ internal static class DoroUpdater
             SafeDeleteDir(backup);
             SafeDeleteDir(staging);
 
-            if (relaunch)
-            {
-                string exe = Path.Combine(targetFull, "dororo.exe");
-                Log("重新启动 " + exe);
-                try
-                {
-                    Process.Start(new ProcessStartInfo(exe) { WorkingDirectory = targetFull, UseShellExecute = false });
-                }
-                catch (Exception ex)
-                {
-                    // 更新本身已成功，只是没能自动拉起，不算失败
-                    Log("重启失败（更新已完成，请手动启动）: " + ex.Message);
-                }
-            }
-
+            Relaunch(targetFull, relaunch);
             Log("==== 更新成功 ====");
-            CloseLog();
-            return 0;
+            return Done(0);
         }
         catch (Exception ex)
         {
@@ -256,6 +275,158 @@ internal static class DoroUpdater
         }
         // 给系统一点时间真正释放句柄
         Thread.Sleep(800);
+    }
+
+
+    // ------------------------------------------------------------ 逐文件替换
+
+    /// 不动目录本身，只把里面的文件一个个换掉。
+    ///
+    /// 整目录改名（Directory.Move）要求目录自己和里面每一个文件都没有被任何进程打开，
+    /// 一个都不行 —— 而实测有外部程序会短暂占住（杀软扫刚下载的安装包、资源管理器开着
+    /// 那个文件夹），一次持续 30 秒以上，把重试窗口拉长只是碰运气。
+    ///
+    /// 逐文件替换的门槛低得多：只要那一个文件此刻可动就行。而且杀毒软件打开文件时
+    /// 通常带 FILE_SHARE_DELETE（不然它一扫描就会弄坏正在运行的程序），所以扫描期间
+    /// 改名往往仍然成功。真正的安装程序也是这么做的。
+    ///
+    /// 代价是失去了「一次改名、要么全成要么全不成」的原子性，所以这里自己记账：
+    /// 每替换一个文件就把旧的那个改名留着，中途任何一步失败就按相反顺序全部还原。
+    private static bool ReplaceFileByFile(string content, string target)
+    {
+        // 记录做过的动作，失败时按相反顺序还原
+        var backedUp = new List<string[]>();  // {备份路径, 原路径}
+        var placed = new List<string>();      // 已放上去的新文件
+
+        try
+        {
+            foreach (string src in Directory.GetFiles(content, "*", SearchOption.AllDirectories))
+            {
+                string rel = src.Substring(content.Length).TrimStart(Path.DirectorySeparatorChar);
+                string dst = Path.Combine(target, rel);
+                Directory.CreateDirectory(Path.GetDirectoryName(dst));
+
+                if (File.Exists(dst))
+                {
+                    string bak = dst + ".dororo_old";
+                    TryDeleteFile(bak);
+                    if (!TryMoveFile(dst, bak))
+                    {
+                        Log("  换不动 " + rel + "（一直被占用），放弃并还原");
+                        RollbackFileByFile(backedUp, placed);
+                        return false;
+                    }
+                    backedUp.Add(new string[] { bak, dst });
+                }
+
+                if (!TryMoveFile(src, dst))
+                {
+                    Log("  放不进 " + rel + "，放弃并还原");
+                    RollbackFileByFile(backedUp, placed);
+                    return false;
+                }
+                placed.Add(dst);
+                Log("  已替换 " + rel);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log("  逐文件替换出错: " + ex.Message);
+            RollbackFileByFile(backedUp, placed);
+            return false;
+        }
+
+        // 全部换完才删备份。删不掉无所谓，那只是一份 .dororo_old 垃圾，
+        // 下次更新会先清掉它。
+        foreach (string[] pair in backedUp) TryDeleteFile(pair[0]);
+        return true;
+    }
+
+    private static void RollbackFileByFile(List<string[]> backedUp, List<string> placed)
+    {
+        foreach (string f in placed) TryDeleteFile(f);
+        for (int i = backedUp.Count - 1; i >= 0; i--)
+        {
+            string bak = backedUp[i][0], dst = backedUp[i][1];
+            if (File.Exists(dst)) TryDeleteFile(dst);
+            if (!TryMoveFile(bak, dst))
+                Log("  还原失败！原文件留在 " + bak + "，需手动改回 " + dst);
+        }
+        Log("  已还原到更新前的状态");
+    }
+
+    /// 单个文件改名，短暂占用会自行消失，所以重试。
+    private static bool TryMoveFile(string from, string to)
+    {
+        for (int i = 0; i < FileRetryCount; i++)
+        {
+            try { File.Move(from, to); return true; }
+            catch { if (i == FileRetryCount - 1) return false; Thread.Sleep(FileRetryDelayMs); }
+        }
+        return false;
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try { if (File.Exists(path)) File.Delete(path); } catch { }
+    }
+
+    private static bool HasRequiredFiles(string dir)
+    {
+        foreach (string f in RequiredFiles)
+            if (!File.Exists(Path.Combine(dir, f))) return false;
+        return true;
+    }
+
+    // ------------------------------------------------------------ 重启
+
+    /// 更新成功后把新版拉起来。
+    private static void Relaunch(string targetFull, bool relaunch)
+    {
+        if (!relaunch) return;
+        string exe = Path.Combine(targetFull, "dororo.exe");
+        Log("重新启动 " + exe);
+        try
+        {
+            Process.Start(new ProcessStartInfo(exe) { WorkingDirectory = targetFull, UseShellExecute = false });
+        }
+        catch (Exception ex)
+        {
+            // 更新本身已成功，只是没能自动拉起，不算失败
+            Log("重启失败（更新已完成，请手动启动）: " + ex.Message);
+        }
+    }
+
+    /// 更新失败、已回滚之后，把原来那版桌宠重新拉起来。
+    ///
+    /// 这一步是用户体验上最要紧的补救：之前失败时桌宠就那么消失了，屏幕上什么都不剩，
+    /// 用户完全不知道发生了什么、也不知道东西还在不在（实际上回滚过、一点没坏）。
+    /// 现在至少她会自己回来，用户最多是「这次没更新上」，而不是「我的桌宠不见了」。
+    private static void RelaunchAfterFailure(string targetFull, bool relaunch)
+    {
+        Console.WriteLine();
+        Console.WriteLine("  ============================================");
+        Console.WriteLine("     这次没更新成功，但你的桌宠一点没坏。");
+        Console.WriteLine();
+        Console.WriteLine("     原来那版会马上重新打开，照旧能用。");
+        Console.WriteLine("     过一会儿再点一次「检查更新」通常就好了 ——");
+        Console.WriteLine("     刚才是有别的程序（多半是杀毒软件在扫描");
+        Console.WriteLine("     刚下载的安装包）临时占着文件。");
+        Console.WriteLine("  ============================================");
+        Console.WriteLine();
+        if (!HasRequiredFiles(targetFull))
+        {
+            Log("安装目录里关键文件不齐，不敢自动启动，请手动检查 " + targetFull);
+            return;
+        }
+        Relaunch(targetFull, relaunch);
+    }
+
+    /// 收尾：关日志并返回退出码。
+    private static int Done(int code)
+    {
+        CloseLog();
+        return code;
     }
 
     /// 开头打一条足够醒目的说明。
