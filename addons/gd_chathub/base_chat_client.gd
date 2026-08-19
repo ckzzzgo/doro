@@ -10,7 +10,15 @@ class_name BaseChatClient
 @export var _prompt: String
 
 @export var _thinking: bool = false
-@export var _stream: bool = false
+
+## 流式输出默认开启，界面上不再提供开关。
+##
+## 关掉的话是「盯着空白等三五秒、然后整段话啪地蹦出来」，开着是一个字一个字往外冒，
+## 像真的在说话 —— 对桌宠来说后者明显更好，这不该是个让用户纠结的选项。
+##
+## 它原先默认关闭，是因为 response_parser 里残片拼接的方向写反了，开了就丢字乱序
+## （详见那边的注释）。那个 bug 已修，实测 TCP 在行中间切包也能完整还原。
+@export var _stream: bool = true
 @export var _max_token: int = -1
 @export var _temperature: float = -1
 
@@ -55,54 +63,79 @@ func set_prompt(prompt: String):
 func get_prompt():
 	return _prompt
 	
-## 接口地址只保留「协议 + 主机」。
+## 路径前缀，例如 https://api.openai.com/v1 里的 "/v1"。聊天和模型列表两个
+## 接口都挂在它下面。
+var _api_prefix: String = ""
+
+## 用一个「基础地址」一次性设定主机、端口和路由。
 ##
-## HTTPClient.connect_to_host 只接受主机名，用户若把 https://api.deepseek.com/v1 这类
-## 带路径的完整地址整个填进来，路径会被当成主机名的一部分去解析 —— 结果是连不上，
-## 而且从界面上完全看不出原因。路径部分属于「路由」，那有单独的设置项。
+## 原先界面上有三个字段：地址、路由、端口。后两个纯粹是把内部实现细节漏给了用户 ——
+## 路由固定是 /chat/completions（OpenAI 兼容标准），端口能从协议推出来。用户只需要
+## 照服务商文档粘一个基础地址，剩下的这里算。
+func set_base_url(base: String) -> void:
+	var p := parse_base_url(base)
+	_url = p["host"]
+	_port = p["port"]
+	_api_prefix = p["prefix"]
+	_route = p["route"]
+
+## 模型列表接口，用于「连接并获取模型」。
+func get_models_route() -> String:
+	return _api_prefix + "/models"
+
+## 拆解基础地址。写成静态纯函数，方便直接测各种写法。
 ##
-## 协议前缀必须保留：TLS 判定要靠它区分 https 与 http。
-func set_url(url: String):
-	_url = _host_only(url)
+## 认得出这些形式：
+##   https://api.deepseek.com            -> 443, /chat/completions
+##   https://api.openai.com/v1           -> 443, /v1/chat/completions
+##   http://127.0.0.1:11434/v1           -> 11434, /v1/chat/completions
+##   api.deepseek.com                    -> 没写协议时按 https
+##   https://api.deepseek.com/v1/chat/completions
+##                                       -> 用户把完整端点粘进来了，去掉尾巴避免拼两次
+static func parse_base_url(base: String) -> Dictionary:
+	var rest := base.strip_edges()
+	var scheme := "https://"
+	var lower := rest.to_lower()
+	if lower.begins_with("https://"):
+		rest = rest.substr(8)
+	elif lower.begins_with("http://"):
+		scheme = "http://"
+		rest = rest.substr(7)
+
+	var path := ""
+	var slash := rest.find("/")
+	if slash >= 0:
+		path = rest.substr(slash)
+		rest = rest.substr(0, slash)
+
+	# 显式端口优先，没写就按协议默认
+	var port := 443 if scheme == "https://" else 80
+	var colon := rest.rfind(":")
+	if colon > 0:
+		var maybe := rest.substr(colon + 1)
+		if maybe.is_valid_int():
+			port = maybe.to_int()
+			rest = rest.substr(0, colon)
+
+	# 归一化路径前缀：去掉结尾斜杠；用户若把完整端点粘进来，去掉那段尾巴
+	while path.ends_with("/"):
+		path = path.substr(0, path.length() - 1)
+	if path.to_lower().ends_with("/chat/completions"):
+		path = path.substr(0, path.length() - "/chat/completions".length())
+
+	return {
+		"host": scheme + rest,
+		"port": port,
+		"prefix": path,
+		"route": path + "/chat/completions",
+	}
 
 func get_url():
 	return _url
 
-var _warned_dropped_path: String = ""
-
-func _host_only(url: String) -> String:
-	var rest := url.strip_edges()
-	var scheme := ""
-	var lower := rest.to_lower()
-	if lower.begins_with("https://"):
-		scheme = rest.substr(0, 8)
-		rest = rest.substr(8)
-	elif lower.begins_with("http://"):
-		scheme = rest.substr(0, 7)
-		rest = rest.substr(7)
-
-	var slash := rest.find("/")
-	if slash >= 0:
-		var dropped := rest.substr(slash)
-		rest = rest.substr(0, slash)
-		# 单个结尾斜杠是常见手误，不值得提示；真带了路径才说一声，且同一路径只说一次
-		if dropped != "/" and _warned_dropped_path != dropped:
-			_warned_dropped_path = dropped
-			push_warning(
-				"接口地址里的路径「%s」已被忽略：地址栏只填协议和域名，路径请填到「路由」里。" % dropped
-			)
-
-	return scheme + rest
-	
-func set_port(port: int):
-	_port = port
-	
-func set_route(route: String):
-	_route = route
-	
 func get_route():
 	return _route
-	
+
 func get_port():
 	return _port
 	

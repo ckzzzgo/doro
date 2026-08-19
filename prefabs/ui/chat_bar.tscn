@@ -78,7 +78,7 @@ icon = ExtResource("6_dduo8")
 
 [node name="ClearButton" type="Button" parent="MarginContainer/HBoxContainer"]
 layout_mode = 2
-tooltip_text = "清除上下文"
+tooltip_text = "重新开始 —— 忘掉之前聊过的内容，从头开始一段新对话"
 theme = ExtResource("2_l5u1h")
 icon = ExtResource("5_yrg7x")
 

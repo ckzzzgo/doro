@@ -385,8 +385,6 @@ metadata/_edit_lock_ = true
 [node name="OpenAIChatClient" type="Node" parent="."]
 script = ExtResource("26_dgi5k")
 _url = &"https://api.deepseek.com"
-_route = &"/chat/completions"
-_port = 443
 _model_name = &"deepseek-v4-flash"
 _prompt = "你是 Doro，一只粉毛小狗，现在是这台电脑上的桌面宠物。
 

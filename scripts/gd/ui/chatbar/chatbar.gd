@@ -9,9 +9,20 @@ extends Node
 
 @onready var _config: ConfigManager = get_node("/root/Config")
 
+## 上一句发出去的话。撞上上下文上限时要用它重发一次。
+var _last_sent: String = ""
+## 一轮对话里只允许因为上下文超长重试一次，避免来回死循环。
+var _retried_overflow: bool = false
+## 溢出重试要等客户端这一轮收完再发，见 _on_finish。
+var _pending_overflow_retry: bool = false
+## 当前显示在对话框里的是报错而不是回复，不能写进聊天历史。
+var _showing_error: bool = false
+
 func _ready() -> void:
 	chat_client.on_response.connect(_on_response)
 	chat_client.on_finish.connect(_on_finish)
+	chat_client.on_context_overflow.connect(_on_context_overflow)
+	chat_client.on_api_error.connect(_on_api_error)
 
 func _on_send_button_pressed():
 	var text = line_edit.get_text()
@@ -28,6 +39,9 @@ func _on_send_button_pressed():
 		return
 
 	if chat_client.chat(text, context_manager.get_context()):
+		_last_sent = text
+		_retried_overflow = false
+		_showing_error = false
 		context_manager.add_context(ContextManager.ROLE_USER, line_edit.text)
 		line_edit.clear()
 		chat_dialog.clear_text()
@@ -42,15 +56,27 @@ func _on_stop_button_pressed():
 	
 func _on_clear_button_pressed():
 	context_manager.clear_context()
+	_retried_overflow = false
+	_pending_overflow_retry = false
 	
 func _on_response(data: String):
 	chat_dialog.show()
 	chat_dialog.append_text(data)
 	
 func _on_finish():
+	# 溢出重试放在这里发：溢出信号是在解析途中发出来的，那时客户端还处于
+	# _processing 状态，立刻再调 chat() 会被直接拒掉。必须等这一轮收完。
+	if _pending_overflow_retry:
+		_pending_overflow_retry = false
+		if chat_client.chat(_last_sent, context_manager.get_context()):
+			return
+		_showing_error = true
+		chat_dialog.clear_text()
+		_on_response("诶……我有点想不起来前面聊了啥。")
+
 	var response_text = chat_dialog.get_text()
 	# 连接失败等异常路径下对话内容可能是错误提示，不应作为助手回复写入历史。
-	if not response_text.is_empty():
+	if not response_text.is_empty() and not _showing_error:
 		context_manager.add_context(ContextManager.ROLE_ASSISTANT, response_text)
 	send_btn.visible = true
 	stop_btn.visible = false
@@ -68,3 +94,31 @@ func _chat_config_hint() -> String:
 	if String(chat_client.get_model()).strip_edges().is_empty():
 		return "人，「设置」→「聊天」里的模型名还没填，我不知道该用哪个脑子。"
 	return ""
+
+
+## 聊得太久、超出模型上下文上限时的处理。
+##
+## 刻意不做「主动按条数裁剪」：现在的模型上下文都很大，正常聊天很难撞到上限，
+## 为此在界面上加个「最大上下文数量」让用户去猜该填多少，代价大于收益。这里改成
+## 真撞上了才处理 —— 丢掉最旧的一半历史，静默重发刚才那句话。顺利的话用户完全
+## 察觉不到，只是这一句回得慢一点。
+##
+## 系统 prompt 不在这份历史里（客户端每次单独拼在最前面），所以裁剪不会让她失忆到
+## 忘记自己是谁。
+func _on_context_overflow(_message: String) -> void:
+	if _retried_overflow or _last_sent.is_empty():
+		# 裁掉一半还是超，说明单轮内容本身就太长了，这时候得让用户自己动手
+		_showing_error = true
+		chat_dialog.clear_text()
+		_on_response("诶……我们聊得太多了，我脑袋装不下啦。点一下聊天栏那个「重新开始」，咱们从头聊？")
+		return
+
+	_retried_overflow = true
+	context_manager.drop_oldest_half()
+	_pending_overflow_retry = true
+
+## 其它接口错误：显示出来，但标记成「这不是 Doro 说的话」，别写进聊天历史 ——
+## 否则「API Key 无效」这类句子会被当成她的上一句发回给模型。
+func _on_api_error(message: String) -> void:
+	_showing_error = true
+	_on_response(message)

@@ -8,6 +8,14 @@ var _last_http_status: int = 0
 var _temperature_enable: bool = false
 var _max_token_enable: bool = false
 
+## 接口回报「上下文超长」时发这个，而不是把报错当成回复显示出来。
+## 接收方（chatbar）会丢掉一半历史再重试一次。
+signal on_context_overflow(message: String)
+
+## 接口报的其它错误（Key 无效、模型名写错等）。原先这些错误走的是 on_response，
+## 上层分不清收到的是回复还是报错，结果把报错也当成 Doro 的话写进了聊天历史。
+signal on_api_error(message: String)
+
 # 非阻塞连接状态：_connecting 为 true 时，连接在 _process 中推进；
 # 连接成功后立即发送缓存的待发消息/上下文，全程不阻塞主线程。
 var _connecting: bool = false
@@ -18,7 +26,7 @@ var _pending_context: Array = []
 func _ready() -> void:
 	_response_parser.on_thinking.connect(_emit_on_thinking)
 	_response_parser.on_response.connect(_emit_on_response)
-	_response_parser.on_error.connect(_emit_on_response)
+	_response_parser.on_error.connect(_on_parser_error)
 	_response_parser.on_finish.connect(_on_process_response_finished)
 
 func _disconnect():
@@ -197,3 +205,35 @@ func set_max_token_enable(enable: bool):
 	
 func get_max_token_enable(enable: bool):
 	return _max_token_enable
+
+
+## 接口报错的分流。
+##
+## 「上下文超长」要和别的错误区别对待：它不是配置错了，而是聊得太久了，
+## 丢掉一部分旧历史重试一次就能继续，用户根本不需要看到任何报错。
+## 其余错误（key 无效、模型名写错等）照旧显示出来，那些是真需要用户处理的。
+func _on_parser_error(message: String) -> void:
+	if _is_context_overflow(message):
+		on_context_overflow.emit(message)
+		return
+	on_api_error.emit(message)
+
+## 各家服务商对这个错误的措辞不统一，只能按关键词认。认漏了的后果仅仅是
+## 退化成显示原始报错，不会更糟。
+const CONTEXT_OVERFLOW_HINTS := [
+	"context length",
+	"context_length_exceeded",
+	"maximum context",
+	"context window",
+	"reduce the length",
+	"too many tokens",
+	"上下文",
+	"长度超",
+]
+
+static func _is_context_overflow(message: String) -> bool:
+	var lower := message.to_lower()
+	for hint in CONTEXT_OVERFLOW_HINTS:
+		if lower.contains(hint):
+			return true
+	return false
