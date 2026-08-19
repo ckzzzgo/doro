@@ -26,10 +26,7 @@ func process(response: String):
 			var choice = data.choices[0]
 			
 			if choice.has("message"):
-				if choice["message"].has("reasoning_content"):
-					on_thinking.emit(choice.message.reasoning_content)
-				if choice["message"].has("content"):
-					on_response.emit(choice.message.content)
+				_emit_delta(choice.message)
 				
 	on_finish.emit()
 
@@ -72,10 +69,8 @@ func process_stream(response: String):
 					#print("STOP")
 					on_finish.emit()
 					break
-				elif choice.has("delta") and choice.delta.has("reasoning_content"):
-					on_thinking.emit(choice.delta.reasoning_content)
-				elif choice.has("delta") and choice.delta.has("content"):
-					on_response.emit(choice.delta.content)
+				elif choice.has("delta"):
+					_emit_delta(choice.delta)
 		else:
 			#print('Parse Error')
 			_cache = line
@@ -84,3 +79,26 @@ func process_stream(response: String):
 
 func clear_cache():
 	_cache = ""
+
+
+## 把一个 delta / message 里的内容分发到对应的信号。
+##
+## 这里必须按【值】判空，不能按键是否存在判 —— 推理模型（deepseek-v4-flash 这类）
+## 每一片都同时带着 content 和 reasoning_content 两个键，只不过其中一个是 null：
+##
+##   "delta": {"content": null, "reasoning_content": "Okay"}
+##   "delta": {"content": "汪汪", "reasoning_content": null}
+##
+## 原来的写法是 elif choice.delta.has("reasoning_content")，而 has() 只看键在不在。
+## 于是这个分支永远命中，所有内容都被当成「思考过程」发到 on_thinking，
+## 真正的回复一个字都到不了 on_response —— 表现就是发完消息毫无反应。
+##
+## 另外用 if 而不是 elif：一片里两样都有值时，两样都该发出去。
+func _emit_delta(d: Dictionary) -> void:
+	var reasoning = d.get("reasoning_content")
+	if reasoning is String and not reasoning.is_empty():
+		on_thinking.emit(reasoning)
+
+	var content = d.get("content")
+	if content is String and not content.is_empty():
+		on_response.emit(content)

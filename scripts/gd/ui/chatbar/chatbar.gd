@@ -17,12 +17,15 @@ var _retried_overflow: bool = false
 var _pending_overflow_retry: bool = false
 ## 当前显示在对话框里的是报错而不是回复，不能写进聊天历史。
 var _showing_error: bool = false
+## 正在显示「她在想」的占位提示。
+var _thinking_shown: bool = false
 
 func _ready() -> void:
 	chat_client.on_response.connect(_on_response)
 	chat_client.on_finish.connect(_on_finish)
 	chat_client.on_context_overflow.connect(_on_context_overflow)
 	chat_client.on_api_error.connect(_on_api_error)
+	chat_client.on_thinking.connect(_on_thinking)
 
 func _on_send_button_pressed():
 	var text = line_edit.get_text()
@@ -42,6 +45,7 @@ func _on_send_button_pressed():
 		_last_sent = text
 		_retried_overflow = false
 		_showing_error = false
+		_thinking_shown = false
 		context_manager.add_context(ContextManager.ROLE_USER, line_edit.text)
 		line_edit.clear()
 		chat_dialog.clear_text()
@@ -60,6 +64,10 @@ func _on_clear_button_pressed():
 	_pending_overflow_retry = false
 	
 func _on_response(data: String):
+	# 推理模型会先想一会儿再开口。真内容一来就把「在想」的占位换掉。
+	if _thinking_shown:
+		_thinking_shown = false
+		chat_dialog.clear_text()
 	chat_dialog.show()
 	chat_dialog.append_text(data)
 	
@@ -122,3 +130,15 @@ func _on_context_overflow(_message: String) -> void:
 func _on_api_error(message: String) -> void:
 	_showing_error = true
 	_on_response(message)
+
+
+## 推理模型（deepseek-v4-flash 这类）会先输出一段思考再给答案，那段思考往往是英文的
+## 自言自语，不该当成 Doro 说的话显示出来。但也不能什么都不显示 —— 思考可能持续好几秒，
+## 屏幕上一片空白看起来就像卡死了（这正是「发完消息没反应」的一部分原因：
+## on_thinking 以前压根没有任何人接收）。所以放一句占位，等真内容到了再换掉。
+func _on_thinking(_content: String) -> void:
+	if _thinking_shown or _showing_error:
+		return
+	_thinking_shown = true
+	chat_dialog.show()
+	chat_dialog.append_text("（她好像在想什么……）")

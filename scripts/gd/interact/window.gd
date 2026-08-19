@@ -93,6 +93,14 @@ func _input(event: InputEvent) -> void:
 		get_tree().root.position = new_position
 		return
 
+	# 中键呼出菜单要放在输入模式判定之前。否则打字模式下中键完全没反应 —— 而工具栏是
+	# 退出、设置、聊天的唯一入口，那时候用户等于被困住，只能去托盘图标找出路。
+	# 拖动当初也是因为同样的原因被提前的。
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_MIDDLE:
+		if event.pressed and not docking:
+			window_middle_click.emit()
+		return
+
 	if input_mode_active:
 		if dragging:
 			DoroLog.d("[DORO] DRAG force-reset by input_mode gate t=%d" % Time.get_ticks_msec())
@@ -100,10 +108,8 @@ func _input(event: InputEvent) -> void:
 		return
 
 	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_MIDDLE:
-			if event.pressed and not docking:
-				window_middle_click.emit()
-		# Window rescaling
+		# 滚轮缩放仍然只在普通模式下生效：打字模式的桌面和爪子是按当前窗口尺寸算好的，
+		# 中途改尺寸会让它们错位。
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
 			increase_window_size()
 			window_scale_changed.emit("window_scale", window_scale)
