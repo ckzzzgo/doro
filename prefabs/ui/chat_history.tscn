@@ -1,0 +1,67 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Texture2D" uid="uid://b1x0h5ke4edr4" path="res://images/icons/ui/settings/bg_sharp.png" id="1_bg"]
+[ext_resource type="Theme" uid="uid://djmv4w4gt1hm6" path="res://themes/settings.tres" id="2_theme"]
+[ext_resource type="PackedScene" uid="uid://dkq4fyfppmif4" path="res://prefabs/ui/setting/title_bar.tscn" id="3_title"]
+[ext_resource type="Script" path="res://scripts/gd/ui/chat_history/chat_history.gd" id="4_script"]
+
+[node name="NinePatchRect" type="NinePatchRect"]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = ExtResource("2_theme")
+texture = ExtResource("1_bg")
+region_rect = Rect2(0, 0, 106, 106)
+patch_margin_left = 25
+patch_margin_top = 25
+patch_margin_right = 25
+patch_margin_bottom = 25
+axis_stretch_horizontal = 1
+axis_stretch_vertical = 1
+script = ExtResource("4_script")
+
+[node name="VBoxContainer" type="VBoxContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/separation = 0
+
+[node name="TitleBar" parent="VBoxContainer" instance=ExtResource("3_title")]
+layout_mode = 2
+title = &"聊天记录"
+
+[node name="ScrollContainer" type="ScrollContainer" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme = ExtResource("2_theme")
+horizontal_scroll_mode = 0
+
+[node name="Entries" type="VBoxContainer" parent="VBoxContainer/ScrollContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 0
+
+[node name="EmptyHint" type="Label" parent="VBoxContainer/ScrollContainer/Entries"]
+layout_mode = 2
+theme = ExtResource("2_theme")
+theme_type_variation = &"LabelItem"
+text = "还没聊过什么。在下面的输入框里跟她说句话吧。"
+autowrap_mode = 3
+
+[node name="Footer" type="HBoxContainer" parent="VBoxContainer"]
+layout_mode = 2
+
+[node name="HSpacer" type="Control" parent="VBoxContainer/Footer"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RestartButton" type="Button" parent="VBoxContainer/Footer"]
+layout_mode = 2
+tooltip_text = "忘掉之前聊过的内容，从头开始一段新对话"
+theme = ExtResource("2_theme")
+text = "重新开始"

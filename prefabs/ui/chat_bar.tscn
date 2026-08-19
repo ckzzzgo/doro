@@ -47,7 +47,7 @@ theme_override_constants/separation = 30
 [node name="ChatWindowButton" type="Button" parent="MarginContainer/HBoxContainer"]
 visible = false
 layout_mode = 2
-tooltip_text = "打开聊天窗口"
+tooltip_text = "聊天记录 —— 看看之前都聊了什么"
 theme = ExtResource("2_l5u1h")
 theme_override_constants/icon_max_width = 28
 icon = ExtResource("4_yrg7x")
@@ -88,6 +88,7 @@ tooltip_text = "返回"
 theme = ExtResource("2_l5u1h")
 icon = ExtResource("7_hp1p8")
 
+[connection signal="pressed" from="MarginContainer/HBoxContainer/ChatWindowButton" to="." method="_on_chat_window_button_pressed"]
 [connection signal="text_submitted" from="MarginContainer/HBoxContainer/LineEdit" to="." method="_on_line_edit_text_submitted"]
 [connection signal="pressed" from="MarginContainer/HBoxContainer/SendButton" to="." method="_on_send_button_pressed"]
 [connection signal="pressed" from="MarginContainer/HBoxContainer/StopButton" to="." method="_on_stop_button_pressed"]

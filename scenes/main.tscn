@@ -29,6 +29,8 @@
 [ext_resource type="Script" uid="uid://xpg4kgx0vdym" path="res://addons/gd_chathub/openai_chat_client.gd" id="26_dgi5k"]
 [ext_resource type="PackedScene" uid="uid://c7crjehg0e81v" path="res://prefabs/ui/setting/setting.tscn" id="26_vxglm"]
 [ext_resource type="Script" uid="uid://ulsqxff78cp0" path="res://scripts/gd/ui/setting/setting_window.gd" id="27_2f3dj"]
+[ext_resource type="PackedScene" path="res://prefabs/ui/chat_history.tscn" id="40_hist"]
+[ext_resource type="Script" path="res://scripts/gd/ui/chat_history/chat_history_window.gd" id="41_hist"]
 [ext_resource type="Script" uid="uid://ctahbfjyc2lpd" path="res://addons/gd_chathub/context_manager.gd" id="27_j8jky"]
 [ext_resource type="PackedScene" uid="uid://belewrb1nqyk8" path="res://prefabs/ui/chat_bar.tscn" id="28_fv21b"]
 [ext_resource type="Script" uid="uid://chga2u23wjved" path="res://scripts/gd/ui/chat_dialog/chat_dialog_window.gd" id="31_qkpxi"]
@@ -455,6 +457,19 @@ min_size = Vector2i(450, 350)
 script = ExtResource("27_2f3dj")
 
 [node name="NinePatchRect" parent="GUI/Settings" instance=ExtResource("26_vxglm")]
+offset_right = 0.0
+offset_bottom = 0.0
+
+[node name="ChatHistory" type="Window" parent="GUI"]
+title = "聊天记录"
+initial_position = 2
+size = Vector2i(420, 460)
+visible = false
+borderless = true
+min_size = Vector2i(320, 240)
+script = ExtResource("41_hist")
+
+[node name="NinePatchRect" parent="GUI/ChatHistory" instance=ExtResource("40_hist")]
 offset_right = 0.0
 offset_bottom = 0.0
 

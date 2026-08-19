@@ -62,6 +62,7 @@ func _on_clear_button_pressed():
 	context_manager.clear_context()
 	_retried_overflow = false
 	_pending_overflow_retry = false
+	_history_window().refresh_if_open()
 	
 func _on_response(data: String):
 	# 推理模型会先想一会儿再开口。真内容一来就把「在想」的占位换掉。
@@ -88,6 +89,7 @@ func _on_finish():
 		context_manager.add_context(ContextManager.ROLE_ASSISTANT, response_text)
 	send_btn.visible = true
 	stop_btn.visible = false
+	_history_window().refresh_if_open()
 
 func _on_line_edit_text_submitted(new_text: String):
 	_on_send_button_pressed()
@@ -142,3 +144,11 @@ func _on_thinking(_content: String) -> void:
 	_thinking_shown = true
 	chat_dialog.show()
 	chat_dialog.append_text("（她好像在想什么……）")
+
+
+## 聊天记录窗口。气泡只显示最新一句，要回看得开这个。
+func _history_window():
+	return get_node("/root/Node2D/GUI/ChatHistory")
+
+func _on_chat_window_button_pressed():
+	_history_window().toggle()
