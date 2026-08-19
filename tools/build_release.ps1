@@ -77,7 +77,10 @@ function Md5([string]$path) {
 }
 
 # 在文件的前 N 字节里找一个 ASCII 串。Godot 的 pck 把文件路径表放在开头，
-# 所以只读前几 MB 就够判断某个资源在不在包里，不必读完 100 多 MB。
+# 所以只读前几 MB 就够判断某个资源【在不在】包里，不必读完 100 多 MB。
+#
+# 注意这只适合证明「某个东西在」，不能用来证明「某个东西不在」—— 路径表不一定全在
+# 前 N 字节内。要证明不存在必须全量扫描，见下面文档素材那条检查。
 function PckContains([string]$pck, [string]$needle, [int]$scanBytes = 8MB) {
     $fs = [System.IO.File]::OpenRead($pck)
     try {
@@ -225,6 +228,23 @@ if (-not (PckContains $stagePck "Doro.moc3")) {
     Fail "pck 里没有 Doro.moc3。`n     Live2D 的非资源文件必须在 export_presets.cfg 的 include_filter 里显式列出。"
 }
 Ok "Live2D 模型已打进 pck"
+
+# 反向检查：文档和草稿素材不该跟着发货。
+#
+# 这条存在的理由是我曾经栽在这上面：exclude_filter 当时写的是 "docs/*"，而过滤器
+# 匹配的是完整的 res://docs/... 路径，前缀对不上，等于没排除。而我验证时只扫了 pck
+# 的前 40MB，那些路径恰好在更后面，于是「已确认无残留」的结论是错的，一个 154 个文件
+# 的参考模型继续跟着每个用户的下载走。
+#
+# 所以这里全量扫描，不设上限 —— 慢几秒换一个不会骗人的结论。
+$pckText = [System.Text.Encoding]::ASCII.GetString([System.IO.File]::ReadAllBytes($stagePck))
+$leaks = [regex]::Matches($pckText, 'res://docs/[ -~]{0,60}') | ForEach-Object { $_.Value } | Select-Object -Unique
+if ($leaks.Count -gt 0) {
+    Info "例如："
+    $leaks | Select-Object -First 5 | ForEach-Object { Info ("  " + $_) }
+    Fail ("pck 里混进了 {0} 个 res://docs/ 资源。`n     docs/ 下放的是文档和不参与运行的草稿素材，不该发货。`n     检查 export_presets.cfg 的 exclude_filter —— 它匹配的是带 res:// 前缀的完整路径，`n     所以要写 *docs/* 而不是 docs/*。" -f $leaks.Count)
+}
+Ok "文档与草稿素材未混进 pck（全量扫描）"
 
 # ------------------------------------------------------------------ 组装
 
