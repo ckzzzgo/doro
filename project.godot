@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Dororo"
-config/version="1.1.4"
+config/version="1.1.5"
 run/main_scene="uid://gfuvhyo1xjl4"
 config/features=PackedStringArray("4.4", "C#", "GL Compatibility")
 run/max_fps=30

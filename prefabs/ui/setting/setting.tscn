@@ -109,12 +109,6 @@ size_flags_horizontal = 0
 theme = ExtResource("1_nmrls")
 text = "开机自启"
 
-[node name="PowerSaveCheckbox" type="CheckBox" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/System"]
-layout_mode = 2
-size_flags_horizontal = 0
-theme = ExtResource("1_nmrls")
-text = "低功耗模式"
-
 [node name="AutoHideCheckbox" type="CheckBox" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/System"]
 layout_mode = 2
 size_flags_horizontal = 0
