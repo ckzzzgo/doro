@@ -57,7 +57,16 @@ func _ready() -> void:
 	update_window()
 
 	add_child(docking_time_counter)
-	mouseDetection.connect("MouseEntered", docking_time_counter.increase)
+	mouseDetection.connect("MouseEntered", _on_mouse_entered_while_docked)
+
+## 「被打扰」计数只在停靠时累加。
+##
+## 这个计数唯一的用途是「贴在屏幕边缘被反复划过」的情绪递进，平时抚摸她不该往里加 ——
+## 原先它直接接在 MouseEntered 上，不分停靠与否，于是正常玩一会儿就把计数顶上去了，
+## 下一次停靠一上来就是生气。
+func _on_mouse_entered_while_docked() -> void:
+	if docking:
+		docking_time_counter.increase()
 
 func _process(delta: float) -> void:
 	dock_pop()
@@ -285,15 +294,17 @@ func dock_to_edge(win_pos: Vector2i, thresh: float):
 
 ## 解除停靠。两个分支（拖得太远 / 不在边缘范围内）共用同一套收尾。
 ##
-## 刻意只复位姿态，不复位表情和「被打扰」计数：把她从边缘拖出来时，让她把当时的情绪
-## 一起带出来 —— 疑惑或生气会留在脸上，直到抚摸她才刷新。
+## 刻意只复位姿态，不复位表情：把她从边缘拖出来时，让她把当时的情绪一起带出来 ——
+## 疑惑或生气会留在脸上，直到抚摸她才刷新。
 ##
 ## 这原本只是打字模式的副作用：那边因为姿态归打字模仿掌管、整段复位被跳过，情绪就顺带
 ## 留了下来；而普通模式会立刻抹平。实际用起来「带着情绪被拖出来」明显更有生气，
 ## 所以把普通模式也统一成这样。
 ##
-## 计数不需要手动清：TimeCounter 在 dock_pop_expression_reset_time 秒内没有新的打扰
-## 就会自行归零，所以隔一会儿再去烦她，递进会从头开始。
+## 但「被打扰」计数必须在这里归零，这和保留表情是两件事。做上面那个改动时我把两者
+## 一并留下了，结果是计数永不复位：递进阈值是 3 次转疑惑、6 次转生气，一旦某次停靠
+## 攒到 6，之后每次停靠第一下就直接生气 —— 表现就是「隐藏模式下鼠标扫一次就变成生气」。
+## TimeCounter 自带的 30 秒衰减救不了这个：只要 30 秒内碰过她一次，计数就一直往上涨。
 func _undock() -> void:
 	# 姿态（旋转 / 位移 / Body_group）只在普通模式复位。打字模式下这些由打字模仿掌管，
 	# 这里动它会把桌面、爪子的位置弄乱。
@@ -307,6 +318,7 @@ func _undock() -> void:
 	window_docking.emit(false, DOCK_NONE)
 	docking = false
 	docking_dir = DOCK_NONE
+	docking_time_counter.reset()
 
 func _dock_to(win_pos: Vector2i, win_size: Vector2i, screen_rect: Rect2i, dir: int) -> Vector2i:
 	docking = true

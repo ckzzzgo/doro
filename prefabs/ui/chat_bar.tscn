@@ -45,7 +45,6 @@ layout_mode = 2
 theme_override_constants/separation = 30
 
 [node name="ChatWindowButton" type="Button" parent="MarginContainer/HBoxContainer"]
-visible = false
 layout_mode = 2
 tooltip_text = "聊天记录 —— 看看之前都聊了什么"
 theme = ExtResource("2_l5u1h")
