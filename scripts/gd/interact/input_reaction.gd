@@ -147,7 +147,8 @@ func _ready() -> void:
 		PREVIEW_ARGUMENT in OS.get_cmdline_user_args()
 		or OS.get_environment(PREVIEW_ENVIRONMENT) == "1"
 	):
-		call_deferred("_run_preview_capture")
+		# 开发工具，按需加载：见 scripts/gd/dev/input_preview_capture.gd
+		call_deferred("_run_dev_preview_capture")
 	else:
 		_start_listener()
 
@@ -261,80 +262,13 @@ func _start_listener() -> void:
 		push_warning("Doro input listener failed to start.")
 
 
-func _run_preview_capture() -> void:
-	_activate_work_mode()
-	await get_tree().create_timer(0.45).timeout
-	await _save_preview_frame("wrist2-idle.png")
-
-	# 必验键位：近身键（Space/F/G/H）+ 远距键（P/[/]），各拍稳定按下与
-	# 复位过程（松开后第 1 帧、约 25%/50%/75%/100% 与完全静置）。
-	var detail_keys: Array = [
-		["space", 0x20],
-		["f", 0x46],
-		["g", 0x47],
-		["h", 0x48],
-		["p", 0x50],
-		["lbracket", 0xDB],
-		["rbracket", 0xDD],
-	]
-	for entry in detail_keys:
-		var label: String = entry[0]
-		var vk: int = entry[1]
-		_on_key_down(vk)
-		await get_tree().create_timer(0.03).timeout
-		await _save_preview_frame("wrist2-%s-dive.png" % label)
-		await get_tree().create_timer(0.19).timeout
-		await _save_preview_frame("wrist2-%s-press.png" % label)
-		_on_key_up(vk)
-		# 复位从松开这一帧开始（长按已过按压保持期）。按真实复位进度取帧：
-		# 约 26% / 53% / 67% / 81% / 92% / 完全静置。
-		await get_tree().create_timer(0.02).timeout
-		await _save_preview_frame("wrist2-%s-ret-frame1.png" % label)
-		await get_tree().create_timer(0.03).timeout
-		await _save_preview_frame("wrist2-%s-ret-25.png" % label)
-		await get_tree().create_timer(0.025).timeout
-		await _save_preview_frame("wrist2-%s-ret-50.png" % label)
-		await get_tree().create_timer(0.035).timeout
-		await _save_preview_frame("wrist2-%s-ret-75.png" % label)
-		await get_tree().create_timer(0.06).timeout
-		await _save_preview_frame("wrist2-%s-ret-100.png" % label)
-		await get_tree().create_timer(0.23).timeout
-		await _save_preview_frame("wrist2-%s-ret-settle.png" % label)
-		await get_tree().create_timer(0.05).timeout
-
-	# 全键位抽查：所有已映射按键逐一按下，确认没有距离阈值导致手臂异常。
-	for vk in _stage.get_mapped_vks():
-		_on_key_down(vk)
-		await get_tree().create_timer(0.22).timeout
-		await _save_preview_frame("wrist2-sweep-%02X.png" % vk)
-		_on_key_up(vk)
-		await get_tree().create_timer(0.55).timeout
-
-	await get_tree().create_timer(0.1).timeout
-	_on_mouse_down(1)
-	await get_tree().create_timer(0.22).timeout
-	await _save_preview_frame("wrist2-mouse-left.png")
-	_on_mouse_up(1)
-
-	await get_tree().create_timer(0.5).timeout
-	_on_mouse_down(2)
-	await get_tree().create_timer(0.22).timeout
-	await _save_preview_frame("wrist2-mouse-right.png")
-	_on_mouse_up(2)
-	get_tree().quit()
-
-
-func _save_preview_frame(file_name: String) -> void:
-	await RenderingServer.frame_post_draw
-	var image := get_viewport().get_texture().get_image()
-	var save_error := image.save_png("user://%s" % file_name)
-	if save_error != OK:
-		push_error("Failed to save input preview %s: %s" % [file_name, error_string(save_error)])
-
-
 func _read_packets() -> void:
 	while _udp.get_available_packet_count() > 0:
 		var packet := _udp.get_packet().get_string_from_ascii()
+		# 只认本机发来的包。socket 本身绑在 127.0.0.1 上，理论上收不到外部流量，
+		# 但收下什么就照着动爪子这件事不该只靠绑定地址兜着 —— 多这一行几乎没有成本。
+		if _udp.get_packet_ip() != "127.0.0.1":
+			continue
 		var parts := packet.split("|")
 		if parts.is_empty():
 			continue
@@ -494,10 +428,16 @@ func _deactivate_work_mode() -> void:
 	rand_move.enable = _rand_move_was_enabled
 
 
+## 打字模式下锁定朝左。
+##
+## 原来这里把 scale 直接写成 Vector2(0.30, 0.30) —— 那个数字恰好等于场景里模型的
+## 缩放，所以一直没出问题，但它把「翻转回来」和「重设大小」两件事混在了一起：
+## 一旦有人在场景里调整模型大小，进打字模式就会被悄悄拉回 0.30。
+## 现在只取绝对值消掉翻转，不碰实际大小。
 func _lock_work_mode_facing_left() -> void:
-	if model.flip_h or model.scale.x < 0.0:
+	if model.flip_h or model.scale.x < 0.0 or model.scale.y < 0.0:
 		model.flip_h = false
-		model.scale = Vector2(0.30, 0.30)
+		model.scale = Vector2(absf(model.scale.x), absf(model.scale.y))
 
 
 ## 打字模仿时的基准姿态（桌面位 + 朝左 + 打字身体组）。激活工作模式和
@@ -835,3 +775,12 @@ func _load_png_texture(path: String) -> Texture2D:
 
 func _now() -> float:
 	return Time.get_ticks_msec() / 1000.0
+
+
+## 开发用截图流程的入口。实现放在单独文件里，只有真的带了参数才去加载它。
+func _run_dev_preview_capture() -> void:
+	var script = load("res://scripts/gd/dev/input_preview_capture.gd")
+	if script == null:
+		push_error("找不到开发用的截图脚本")
+		return
+	await script.run(self)

@@ -21,8 +21,6 @@ const KEY_ACTIVE_EDGE := Color("#d92f59")
 const KEY_TEXT_COLOR := Color("#44242b")
 const KEY_LABEL_COLOR := Color("#245b8f")
 const KEY_LABEL_OUTLINE_COLOR := Color(1.0, 1.0, 1.0, 0.96)
-const KEYBOARD_DESK_SOURCE_COLOR := Color("#90c5e6")
-const KEYBOARD_DESK_TARGET_COLOR := Color("#f6dce3")
 # 按键按舞台 x 坐标分区：大于此值归键盘爪（屏幕右侧），否则归鼠标爪。
 # 101 位于 Y/M 键区与 H/5 键区之间的天然空隙，两侧按键数量大致相等。
 const KEY_SPLIT_X := 101.0
@@ -620,32 +618,19 @@ func _load_png_texture(path: String) -> Texture2D:
 	return texture
 
 
+## 键盘贴图。
+##
+## 这里原本每次启动都逐像素扫一遍 612x354 的图，把桌面那块蓝色（#90c5e6）换成粉色
+## （#f6dce3）—— 21.6 万次 GDScript 循环，实测 468 毫秒，每次开机都白等这一下。
+## 需要换色的只有 9873 个像素（4.6%），而且换法是固定的，完全可以在出图时烘进 PNG。
+## 现在贴图已经是换好色的成品，直接加载即可；蓝桌面的原图留在
+## docs/source-assets/input-reaction-drafts/nairin_keyboard_original_blue_desk.png。
 func _load_keyboard_texture() -> Texture2D:
 	var texture := ResourceLoader.load(KEYBOARD_TEXTURE_PATH) as Texture2D
 	if texture == null:
 		push_error("Failed to load keyboard asset: %s" % KEYBOARD_TEXTURE_PATH)
 		return ImageTexture.new()
-
-	var image := texture.get_image()
-	if image == null:
-		push_error("Failed to read keyboard asset pixels: %s" % KEYBOARD_TEXTURE_PATH)
-		return texture
-
-	for y in range(image.get_height()):
-		for x in range(image.get_width()):
-			var pixel := image.get_pixel(x, y)
-			if pixel.a <= 0.0:
-				continue
-			if (
-				abs(pixel.r - KEYBOARD_DESK_SOURCE_COLOR.r) < 0.006
-				and abs(pixel.g - KEYBOARD_DESK_SOURCE_COLOR.g) < 0.006
-				and abs(pixel.b - KEYBOARD_DESK_SOURCE_COLOR.b) < 0.006
-			):
-				var replacement := KEYBOARD_DESK_TARGET_COLOR
-				replacement.a = pixel.a
-				image.set_pixel(x, y, replacement)
-
-	return ImageTexture.create_from_image(image)
+	return texture
 
 
 func _now() -> float:
