@@ -1,5 +1,5 @@
 <div align="center">
-<img src="./assets/head.png">
+<img src="./docs/media/head.png">
 <h1 style="text-align: center; margin-top: -10px;">Dororo</h1>
 <p style="text-align: center;">一款基于Godot的开源桌面宠物项目</p>
 </div>
@@ -11,7 +11,7 @@ Dororo是一款基于Godot的开源桌面宠物项目，其灵感来源于游戏
 # ✨ 介绍
 
 <div align="center">
-<img src="./assets/idle.gif">
+<img src="./docs/media/idle.gif">
 </div>
 
 该软件使用Godot 4.4.1 开发，目前仅支持Windows平台，软件功能包括：
@@ -27,33 +27,33 @@ Dororo是一款基于Godot的开源桌面宠物项目，其灵感来源于游戏
 
 # 🖱️ 基础操作
 <div align="center">
-<img src="./assets/move.gif" width="320">
+<img src="./docs/media/move.gif" width="320">
 <p style="text-align: center;">鼠标左键：移动窗口</p>
 </div>
 
 <div align="center">
-<img src="./assets/resize.gif" width="320">
+<img src="./docs/media/resize.gif" width="320">
 <p style="text-align: center;">鼠标滚轮：放大/缩小窗口</p>
 </div>
 
 <div align="center">
-<img src="./assets/stroll.gif" width="320">
+<img src="./docs/media/stroll.gif" width="320">
 <p style="text-align: center;">鼠标右键：抚摸</p>
 </div>
 
 <div align="center">
-<img src="./assets/toolbar.gif" width="320">
+<img src="./docs/media/toolbar.gif" width="320">
 <p style="text-align: center;">鼠标中键：打开/关闭工具栏</p>
 </div>
 
 <div align="center">
-<img src="./assets/dock.gif" width="320">
+<img src="./docs/media/dock.gif" width="320">
 <p style="text-align: center;">移动至屏幕边缘以吸附</p>
 </div>
 
 # 🤖 聊天API设置
 <div align="center">
-<img src="./assets/chat_settings.png">
+<img src="./docs/media/chat_settings.png">
 <p style="text-align: center;">聊天API设置页面</p>
 </div>
 

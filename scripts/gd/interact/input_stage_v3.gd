@@ -1,6 +1,6 @@
 extends Node2D
 
-const KEYBOARD_TEXTURE_PATH := "res://assets/input_reaction/nairin_keyboard.png"
+const KEYBOARD_TEXTURE_PATH := "res://images/input_reaction/nairin_keyboard.png"
 const KEYBOARD_LABEL_FONT_PATH := "res://fonts/MSYHBD.TTC"
 const KEYBOARD_SOURCE_SIZE := Vector2(612, 354)
 const KEYBOARD_CENTER := Vector2(107, 66)
@@ -27,7 +27,7 @@ const KEYBOARD_DESK_TARGET_COLOR := Color("#f6dce3")
 # 101 位于 Y/M 键区与 H/5 键区之间的天然空隙，两侧按键数量大致相等。
 const KEY_SPLIT_X := 101.0
 
-const MOUSE_TEXTURE_PATH := "res://assets/input_reaction/pink_mouse_rounded_perspective_v2.png"
+const MOUSE_TEXTURE_PATH := "res://images/input_reaction/pink_mouse_rounded_perspective_v2.png"
 const MOUSE_SOURCE_SIZE := Vector2(1536, 1024)
 const MOUSE_CENTER := Vector2(-200, 90)
 const MOUSE_SCALE := 0.14

@@ -1,31 +1,30 @@
-# Doro Live2D 键鼠素材包
+# 源素材 / 草稿
 
-这是为粉色 Q 版 Doro 桌宠整理的键鼠视觉素材与调研记录。
+这里放的是**运行时不会加载**的东西：做图过程中的中间稿、参考模型、被新版取代的旧素材。
+留着是因为将来改美术还用得上，但它们不该出现在项目的运行时目录里，也不该被打进安装包。
 
-## 目录
+运行时真正加载的贴图一律在 `images/` 下。
 
-```text
-doro-live2d-input-assets/
-├─ mouse/
-│  ├─ pink-mouse-rounded.png
-│  ├─ pink-mouse-esports.png
-│  └─ pink-mouse-candy.png
-└─ docs/
-   ├─ keyboard-research.md
-   ├─ mouse-live2d-guide.md
-   └─ asset-notes.md
-```
+## keyboard-mode-naier/
 
-## 鼠标方案
+来自 [Awesome-BongoCat](https://github.com/ayangweb/Awesome-BongoCat) 的「乃琳 · 键盘模式」
+Live2D 模型，当初用作打字模式的键盘结构参考（见 `../keyboard-research.md`）。
 
-- `pink-mouse-rounded.png`：圆润奶油粉款，整体最适合 Doro。
-- `pink-mouse-esports.png`：电竞款，按键与侧面结构最清楚。
-- `pink-mouse-candy.png`：糖果萌系款，角色感最强。
+原先它以「乃琳 · 键盘模式」为名放在项目根目录，并且 `export_presets.cfg` 把其中
+两个文件打进了安装包 —— 但代码里从来没有任何地方加载它，属于白打包。移到这里的同时
+去掉了那两条导出项。
 
-三张图片均为 1536 × 1024、RGBA 透明背景 PNG。它们目前是概念成图，并不是已经拆层的 PSD 或 Live2D 模型。
+另一个动机是那个目录名带空格和 `·`，非 ASCII 路径穿过命令行构建链是自找麻烦。
 
-## 推荐下一步
+## mouse-drafts/
 
-建议以圆润款为主体，吸收电竞款的 DPI 键和侧面纹理，然后按 `docs/mouse-live2d-guide.md` 拆分部件。
+早期的鼠标贴图草稿，项目里没有任何引用。实际使用的是
+`images/input_reaction/pink_mouse_rounded_perspective_v2.png`。
 
-键盘调研原答复保存在 `docs/keyboard-research.md`。外部案例只保留链接，没有把第三方文件复制进本素材包。
+## input-reaction-drafts/
+
+打字/鼠标模式贴图的历代草稿：分开的左右爪（后来合成了一张连体图）、抠色用的
+`_chroma` 版本、被 v2/v3 取代的旧版，以及 `generated_source/` 里的合成中间件。
+
+`images/input_reaction/` 里原本混着 20 个文件，而代码只加载其中 5 个 —— 剩下 14 个
+连同中间件一起被打进了每个用户下载的安装包。移到这里之后运行时目录只剩真正在用的。
