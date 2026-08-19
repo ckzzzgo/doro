@@ -12,6 +12,8 @@ const DoroLog = preload("res://scripts/gd/utils/debug_log.gd")
 
 const STEP_SIZE = 0.05
 const MIN_SCALE = 0.1
+## 吸附触发距离最多占屏幕的比例，理由见 dock_to_edge。
+const DOCK_THRESH_SCREEN_CAP = 0.2
 
 const DOCK_LEFT = 0
 const DOCK_RIGHT = 1
@@ -136,8 +138,21 @@ func _guard_drag_stuck() -> void:
 	if _drag_hover_lost_frames >= 3:
 		_end_drag("mouse-left-model")
 
+## 当前屏幕允许的最大缩放：窗口不得超出可用屏幕区域。
+##
+## 原先 increase_window_size 完全没有上限（decrease 有 MIN_SCALE 兜底，increase
+## 什么都没有），可以一路滚到窗口比屏幕还大 —— 实测能到 3200x3200，她被裁掉一大半，
+## 也没法正常拖动，而且这个离谱的倍数还会被存进配置下次接着用。
+##
+## 按当前屏幕算，所以多显示器下换到小屏幕会自动收紧。
+func _max_scale() -> float:
+	var r := DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen())
+	var by_w := float(r.size.x) / float(BASE_WINDOW_WIDTH)
+	var by_h := float(r.size.y) / float(BASE_WINDOW_HEIGHT)
+	return maxf(1.0, minf(by_w, by_h))
+
 func increase_window_size():
-	window_scale += STEP_SIZE
+	window_scale = minf(window_scale + STEP_SIZE, _max_scale())
 	update_window()
 
 func decrease_window_size():
@@ -160,7 +175,8 @@ func update_window():
 		get_tree().root.position = new_position
 
 func load_config():
-	window_scale = config.get_window_config("window_scale", window_scale)
+	# 夹一次：老版本没有上限，配置里可能已经存了比屏幕还大的倍数
+	window_scale = clampf(config.get_window_config("window_scale", window_scale), MIN_SCALE, _max_scale())
 	var saved_pos = config.get_window_config("window_pos", get_tree().root.position)
 	get_tree().root.position = _ensure_on_screen(saved_pos)
 
@@ -224,23 +240,34 @@ func dock_to_edge(win_pos: Vector2i, thresh: float):
 	var win_size = DisplayServer.window_get_size()
 	var win_cpos = win_pos + win_size / 2
 
-	var thresh_pixel = int(win_size.x * thresh)
+	# 触发距离原本是 int(win_size.x * thresh)，纯按窗口大小算 —— 窗口越大触发区越大。
+	# 放大到一定倍数后，左右（或上下）两侧的触发区会在屏幕中间碰头，于是走到哪都吸附，
+	# 好不容易拖出来又立刻在对面吸住。实测 2.5 倍时纵向自由区只剩 80px（屏幕的 7%），
+	# 3 倍起直接归零。
+	#
+	# 现在再用屏幕尺寸封顶，保证任何倍数下自由区都不小于屏幕的 60%。默认 1 倍时
+	# 两个方向都取不到这个上限，所以正常大小下的手感和原来完全一致。
+	#
+	# 纵向也改用窗口高度：原先横竖都拿 win_size.x 算，窗口是正方形时碰巧一样，
+	# 但这是巧合不是道理。
+	var thresh_x := mini(int(win_size.x * thresh), int(screen_rect.size.x * DOCK_THRESH_SCREEN_CAP))
+	var thresh_y := mini(int(win_size.y * thresh), int(screen_rect.size.y * DOCK_THRESH_SCREEN_CAP))
 	var dis_mouse_win_cpos = DisplayServer.mouse_get_position().distance_to(get_tree().root.position + win_size / 2)
 
 	if  dragging and (dis_mouse_win_cpos > win_size.x or dis_mouse_win_cpos > win_size.y):
 		# 当拖动时，鼠标距离窗口超出窗口大小时不停靠，防止窗口移不出当前屏幕
 		_undock()
 		return win_pos
-	elif win_cpos.x - thresh_pixel < screen_rect.position.x:
+	elif win_cpos.x - thresh_x < screen_rect.position.x:
 		# 左侧停靠
 		return _dock_to(win_pos, win_size, screen_rect, DOCK_LEFT)
-	elif win_cpos.x + thresh_pixel > screen_rect.end.x:
+	elif win_cpos.x + thresh_x > screen_rect.end.x:
 		# 右侧停靠
 		return _dock_to(win_pos, win_size, screen_rect, DOCK_RIGHT)
-	elif win_cpos.y - thresh_pixel < screen_rect.position.y:
+	elif win_cpos.y - thresh_y < screen_rect.position.y:
 		# 顶部停靠
 		return _dock_to(win_pos, win_size, screen_rect, DOCK_TOP)
-	elif win_cpos.y + thresh_pixel > screen_rect.end.y:
+	elif win_cpos.y + thresh_y > screen_rect.end.y:
 		# 底部停靠
 		return _dock_to(win_pos, win_size, screen_rect, DOCK_BOTTOM)
 	else:
