@@ -110,21 +110,30 @@ func _input(event: InputEvent) -> void:
 			window_middle_click.emit()
 		return
 
+	# 滚轮缩放同样要放在输入模式判定之前。
+	#
+	# 我当初把它留在闸门后面，理由是「打字模式的桌面和爪子按当前窗口尺寸算好的，
+	# 中途改尺寸会错位」。实测这个理由不成立：舞台和爪子都画在模型的局部坐标里，
+	# 跟着模型一起缩放，改窗口尺寸时它们相对模型的位置分毫不动。
+	# （测试里 1.4 倍时确实看到 358px 的偏移，但那个数字正好等于 DOCK_POS_OFFSET ——
+	#   是窗口变大后她被吸附到屏幕边缘、吸附动作移动了模型，与缩放无关，
+	#   普通模式下同样会发生。）
+	if event is InputEventMouseButton:
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
+			increase_window_size()
+			window_scale_changed.emit("window_scale", window_scale)
+			return
+		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+			decrease_window_size()
+			window_scale_changed.emit("window_scale", window_scale)
+			return
+
 	if input_mode_active:
 		if dragging:
 			DoroLog.d("[DORO] DRAG force-reset by input_mode gate t=%d" % Time.get_ticks_msec())
 		dragging = false
 		return
 
-	if event is InputEventMouseButton:
-		# 滚轮缩放仍然只在普通模式下生效：打字模式的桌面和爪子是按当前窗口尺寸算好的，
-		# 中途改尺寸会让它们错位。
-		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			increase_window_size()
-			window_scale_changed.emit("window_scale", window_scale)
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			decrease_window_size()
-			window_scale_changed.emit("window_scale", window_scale)
 
 ## 结束一次拖动：与松开左键共用同一收尾逻辑，保证两条路径行为一致。
 func _end_drag(reason: String) -> void:

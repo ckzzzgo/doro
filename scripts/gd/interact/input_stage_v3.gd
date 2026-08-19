@@ -7,7 +7,6 @@ const KEYBOARD_CENTER := Vector2(107, 66)
 const KEYBOARD_SCALE := 0.68
 const KEYBOARD_TOP_LEFT := KEYBOARD_CENTER - KEYBOARD_SOURCE_SIZE * KEYBOARD_SCALE * 0.5
 const KEYBOARD_IDLE_CENTER := Vector2(172, 45)
-const KEYBOARD_FALLBACK_CENTER := Vector2(251, 80)
 const KEY_FLASH_TIME := 0.16
 
 const TABLE_COLOR := Color("#fff6f8")
@@ -39,7 +38,6 @@ var _held_keys: Dictionary = {}
 var _key_flash_until: Dictionary = {}
 var _held_mouse: Dictionary = {}
 var _mouse_flash_until: Dictionary = {}
-var _last_fallback_key := -1
 var _font: Font
 var _keyboard_texture: Texture2D
 var _mouse_texture: Texture2D
@@ -156,8 +154,16 @@ func normalize_vk(virtual_key: int) -> int:
 			return virtual_key
 
 
+## 这个键在虚拟键盘上有没有对应的键帽。
+##
+## 原来写的是 return virtual_key > 0 —— 压根没查键位表，任何键码都算「有」。
+## 于是 _on_key_down 里那道 has_key 守卫从来没拦住过谁，ESC / F1 / F2 这些没画出来的
+## 键会走进「兜底键」那条路：在键盘右上角固定位置画一个通用键帽，爪子也跟着去按。
+## 用户看到的就是「按了键盘上没有的键，她还是有反应」。
+##
+## 现在如实查表。键位表只收了 61 个常用键，表外的键一律不产生任何反应。
 func has_key(virtual_key: int) -> bool:
-	return virtual_key > 0
+	return _keys_by_vk.has(normalize_vk(virtual_key))
 
 
 func is_left_key(virtual_key: int) -> bool:
@@ -170,7 +176,8 @@ func is_left_key(virtual_key: int) -> bool:
 func get_key_center(virtual_key: int) -> Vector2:
 	var key: Dictionary = _keys_by_vk.get(normalize_vk(virtual_key), {})
 	if key.is_empty():
-		return KEYBOARD_FALLBACK_CENTER
+		# 表外的键现在被 has_key 拦在外面，走不到这里；留个无害的默认值
+		return KEYBOARD_IDLE_CENTER
 	return key["center"]
 
 
@@ -195,8 +202,6 @@ func press_key(virtual_key: int) -> void:
 	var key := normalize_vk(virtual_key)
 	_held_keys[key] = true
 	_key_flash_until[key] = _now() + KEY_FLASH_TIME
-	if not _keys_by_vk.has(key):
-		_last_fallback_key = key
 	queue_redraw()
 
 
@@ -277,8 +282,6 @@ func _draw_keyboard() -> void:
 
 	_draw_key_labels()
 
-	if _last_fallback_key >= 0 and _is_key_active(_last_fallback_key):
-		_draw_fallback_key(_last_fallback_key)
 
 
 func _draw_key_labels() -> void:
@@ -335,24 +338,6 @@ func _update_key_highlight_layer() -> void:
 		})
 	_key_highlight_layer.set_active_keys(active_keys)
 
-
-func _draw_fallback_key(virtual_key: int) -> void:
-	var rect := Rect2(142, 42, 91, 28)
-	var style := _make_style(Color("#fff7fa"), KEY_ACTIVE_EDGE, 11.0, 2)
-	draw_style_box(style, rect)
-	if _font == null:
-		return
-	var label := _fallback_label(virtual_key)
-	var text_size := _font.get_string_size(label, HORIZONTAL_ALIGNMENT_LEFT, -1, 11)
-	draw_string(
-		_font,
-		rect.position + Vector2((rect.size.x - text_size.x) * 0.5, 19),
-		label,
-		HORIZONTAL_ALIGNMENT_LEFT,
-		-1,
-		11,
-		KEY_TEXT_COLOR
-	)
 
 
 func _draw_mouse() -> void:
@@ -565,27 +550,6 @@ func _highlight_size(virtual_key: int) -> Vector2:
 		_:
 			return Vector2(26, 14)
 
-
-func _fallback_label(virtual_key: int) -> String:
-	if virtual_key >= 0x70 and virtual_key <= 0x7B:
-		return "F%d" % [virtual_key - 0x6F]
-	match virtual_key:
-		0x1B:
-			return "Esc"
-		0x21:
-			return "Page Up"
-		0x22:
-			return "Page Down"
-		0x23:
-			return "End"
-		0x24:
-			return "Home"
-		0x2D:
-			return "Insert"
-		0x2E:
-			return "Delete"
-		_:
-			return "VK %02X" % [virtual_key]
 
 
 func _is_key_active(virtual_key: int) -> bool:
