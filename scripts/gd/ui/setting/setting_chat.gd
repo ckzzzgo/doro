@@ -42,6 +42,7 @@ func _ready() -> void:
 	_section = _config.add_section(&"chat")
 
 	_migrate_old_keys()
+	_migrate_default_prompt()
 	_bind_components()
 	_config.save_config()
 	_section.load_props()
@@ -76,6 +77,31 @@ func _migrate_old_keys() -> void:
 		prefix = prefix.substr(0, prefix.length() - "/chat/completions".length())
 
 	_config.set_value("chat", "url", host + prefix)
+
+## 把还停留在旧版内置人设上的用户换到新版人设。
+##
+## prompt 存在用户自己的 config.ini 里，而 load_props() 只在「配置里没有这个键」时才写
+## 默认值。所以光改场景里的默认 prompt，老用户是一辈子都看不到的 —— 他们配置里那份
+## 旧的会一直生效。
+##
+## 但也绝不能无条件覆盖：有人可能自己重写了人设，那是他的心血。判据是看里面有没有
+## 旧版内置人设特有的【】小节标题 —— 历代内置 prompt 都用这套结构（【你是谁】
+## 【长相】【性格】【最爱】【怎么说话】），而自己写的人设几乎不会恰好也用它。
+## 两个都命中才动手，尽量减少误伤。
+##
+## 代价说清楚：如果有人是在旧版内置人设上改了几句、又保留了那套小节标题，
+## 他的改动会被这次覆盖掉。这是我在「让所有人拿到新人设」和「绝不碰任何人的修改」
+## 之间选的折中。
+const OLD_PROMPT_MARKERS := ["【你是谁】", "【怎么说话】"]
+
+func _migrate_default_prompt() -> void:
+	var stored := String(_config.get_value("chat", "prompt", ""))
+	if stored.is_empty():
+		return
+	for marker in OLD_PROMPT_MARKERS:
+		if not stored.contains(marker):
+			return
+	_config.set_value("chat", "prompt", _chat_client.get_prompt())
 
 func _bind_components():
 	# 默认值取自场景里 OpenAIChatClient 节点上配好的值，不要写死成 ""。
