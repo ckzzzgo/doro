@@ -621,7 +621,9 @@ func _load_png_texture(path: String) -> Texture2D:
 ## 键盘贴图。
 ##
 ## 这里原本每次启动都逐像素扫一遍 612x354 的图，把桌面那块蓝色（#90c5e6）换成粉色
-## （#f6dce3）—— 21.6 万次 GDScript 循环，实测 468 毫秒，每次开机都白等这一下。
+## （#f6dce3）—— 21.6 万次 GDScript 循环。实测删掉它之后舞台创建从 468.5ms 降到
+## 399.5ms，也就是这个循环本身约占 70ms。（我原先以为那 468ms 基本都是它，实测证明不是；
+## 剩下那 400ms 在字体加载、1536x1024 的鼠标贴图、键位表构建里，还没细查。）
 ## 需要换色的只有 9873 个像素（4.6%），而且换法是固定的，完全可以在出图时烘进 PNG。
 ## 现在贴图已经是换好色的成品，直接加载即可；蓝桌面的原图留在
 ## docs/source-assets/input-reaction-drafts/nairin_keyboard_original_blue_desk.png。
