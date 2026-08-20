@@ -1,8 +1,15 @@
 extends Node
 class_name ContextManager
 
-@export var _max_context_enable: bool = false
-@export var _max_context: int = 20
+## 对话历史。
+##
+## 曾经有一套「按条数主动裁剪」的机制（_max_context_enable / _trim_history），
+## 但那个设计被推翻了：现在的模型上下文都很大，正常聊天很难撞到上限，为此在界面上
+## 加个让用户猜数字的设置项不值得。改成真撞上了才处理 —— 见 drop_oldest_half，
+## 由 chatbar 在接口回报「上下文超长」时调用。
+##
+## 那套裁剪代码已经删掉，不留着：一个永远不会执行的 _trim_history 只会让下一个人
+## 以为裁剪在生效。
 
 const ROLE_USER:StringName = &'user'
 const ROLE_ASSISTANT:StringName = &'assistant'
@@ -21,9 +28,6 @@ func add_context(role: StringName, content: String) -> void:
 	}
 
 	_history.append(entry)
-	
-	if _max_context_enable:
-		_trim_history()
 
 func get_context() -> Array:
 	return _history.duplicate(true)
@@ -34,23 +38,6 @@ func clear_context() -> void:
 func get_length() -> int:
 	return _history.size()
 
-func _trim_history() -> void:
-	if _history.size() > _max_context:
-		var to_remove := _history.size() - _max_context
-		_history = _history.slice(to_remove, _history.size())
-		
-func set_max_context(max_context: int):
-	_max_context = max_context
-	_trim_history()
-	
-func get_max_context():
-	return _max_context
-	
-func set_max_context_enable(enable: bool):
-	_max_context_enable = enable
-	
-func get_max_context_enable():
-	return _max_context_enable
 
 ## 撞上模型上下文上限时，丢掉最旧的一半历史。返回丢掉的条数。
 ##

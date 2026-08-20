@@ -33,22 +33,18 @@ signal on_response
 signal on_thinking
 signal on_finish
 	
-func _connect():
-	pass
-	
+## 子类要实现的：连接管理、发送、取消。
+##
+## 原先这里还有 _connect() / generate() / _process_response() 三个空桩，
+## 但没有任何子类覆盖、也没有任何地方调用 —— 是这个基类当初照着某个模板写下来
+## 却从没用上的部分，删掉。
 func _disconnect():
 	pass
-	
-func generate(message: String, stream=true):
-	pass
-	
+
 func chat(message: String):
 	pass
-	
+
 func cancel():
-	pass
-	
-func _process_response():
 	pass
 	
 func set_api_key(key: String):

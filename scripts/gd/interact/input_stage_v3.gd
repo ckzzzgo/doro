@@ -166,12 +166,6 @@ func has_key(virtual_key: int) -> bool:
 	return _keys_by_vk.has(normalize_vk(virtual_key))
 
 
-func is_left_key(virtual_key: int) -> bool:
-	var key: Dictionary = _keys_by_vk.get(normalize_vk(virtual_key), {})
-	if key.is_empty():
-		return false
-	return key["center"].x <= KEY_SPLIT_X
-
 
 func get_key_center(virtual_key: int) -> Vector2:
 	var key: Dictionary = _keys_by_vk.get(normalize_vk(virtual_key), {})
@@ -563,14 +557,6 @@ func _is_mouse_active(button: int) -> bool:
 		return true
 	return _now() < float(_mouse_flash_until.get(button, -1.0))
 
-
-func _make_style(fill: Color, border: Color, radius: float, border_width: int) -> StyleBoxFlat:
-	var style := StyleBoxFlat.new()
-	style.bg_color = fill
-	style.border_color = border
-	style.set_border_width_all(border_width)
-	style.set_corner_radius_all(int(radius))
-	return style
 
 
 func _load_png_texture(path: String) -> Texture2D:

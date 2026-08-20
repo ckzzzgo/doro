@@ -445,11 +445,3 @@ func _project_to_table_edge(point: Vector2) -> Vector2:
 	var tangent := _table_edge_tangent()
 	return TABLE_BACK_LEFT + tangent * (point - TABLE_BACK_LEFT).dot(tangent)
 
-
-func _table_back_edge_y(x_position: float) -> float:
-	var amount := clampf(
-		(x_position - TABLE_BACK_LEFT.x) / (TABLE_BACK_RIGHT.x - TABLE_BACK_LEFT.x),
-		0.0,
-		1.0
-	)
-	return lerpf(TABLE_BACK_LEFT.y, TABLE_BACK_RIGHT.y, amount)

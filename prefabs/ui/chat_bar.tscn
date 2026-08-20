@@ -1,7 +1,7 @@
 [gd_scene load_steps=10 format=3 uid="uid://belewrb1nqyk8"]
 
 [ext_resource type="StyleBoxFlat" path="res://themes/pink_panel.tres" id="pink_panel"]
-[ext_resource type="StyleBoxFlat" path="res://themes/field_bare.tres" id="pink_field"]
+[ext_resource type="StyleBoxFlat" path="res://themes/field_bare.tres" id="field_bare"]
 [ext_resource type="Script" uid="uid://ch8gxey7u6rfi" path="res://scripts/gd/ui/chatbar/chatbar.gd" id="2_3isnr"]
 [ext_resource type="Theme" uid="uid://71a443i30mmx" path="res://themes/toolbar.tres" id="2_l5u1h"]
 [ext_resource type="Texture2D" uid="uid://belaktxterhfx" path="res://images/icons/ui/chat/send.png" id="4_apdq1"]
@@ -49,8 +49,8 @@ icon = ExtResource("4_yrg7x")
 layout_mode = 2
 size_flags_horizontal = 3
 theme = ExtResource("2_l5u1h")
-theme_override_styles/normal = ExtResource("pink_field")
-theme_override_styles/focus = ExtResource("pink_field")
+theme_override_styles/normal = ExtResource("field_bare")
+theme_override_styles/focus = ExtResource("field_bare")
 placeholder_text = "输入文本以聊天~"
 keep_editing_on_text_submit = true
 context_menu_enabled = false
