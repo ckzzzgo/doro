@@ -1,0 +1,11 @@
+[gd_resource type="StyleBoxFlat" format=3]
+
+; 发送按钮。粉底面板上如果按钮也是粉的、还没有边界，等于隐形（上一版就是这样）。
+; 这里用饱和度更高的实心粉 + 白字，作为整个窗口唯一的"主行动"。
+
+[resource]
+bg_color = Color(0.945098, 0.435294, 0.607843, 1)
+corner_radius_top_left = 15
+corner_radius_top_right = 15
+corner_radius_bottom_right = 15
+corner_radius_bottom_left = 15

@@ -18,19 +18,19 @@ const AVATAR := preload("res://images/ui/avatar_doro.png")
 
 ## 气泡最多占内容区宽度的这个比例。短句会自己收窄，只有长句才铺到上限再换行。
 const BUBBLE_MAX_RATIO := 0.66
-const AVATAR_SIZE := 34.0
+const AVATAR_SIZE := 40.0
 
 ## 正文字色。settings 主题里 Label 的默认字色是纯白（那是给粉色标题栏用的），
 ## 气泡底是浅色，不显式指定就是白字压浅底、等于隐形。
 const BODY_COLOR := Color(0.28, 0.28, 0.3)
 const HINT_COLOR := Color(0.62, 0.55, 0.58)
 
-@onready var _entries: VBoxContainer = $VBoxContainer/ScrollContainer/Entries
-@onready var _scroll: ScrollContainer = $VBoxContainer/ScrollContainer
-@onready var _empty_hint: Label = $VBoxContainer/ScrollContainer/Entries/EmptyHint
+@onready var _entries: VBoxContainer = $VBoxContainer/ChatArea/ScrollContainer/Entries
+@onready var _scroll: ScrollContainer = $VBoxContainer/ChatArea/ScrollContainer
+@onready var _empty_hint: Label = $VBoxContainer/ChatArea/ScrollContainer/Entries/EmptyHint
 @onready var _broom: Button = $VBoxContainer/TitleBar/MarginContainer/HBoxContainer/BroomButton
-@onready var _input: LineEdit = $VBoxContainer/InputRow/LineEdit
-@onready var _send_btn: Button = $VBoxContainer/InputRow/SendButton
+@onready var _input: LineEdit = $VBoxContainer/InputArea/InputRow/LineEdit
+@onready var _send_btn: Button = $VBoxContainer/InputArea/InputRow/SendButton
 @onready var _context: ContextManager = get_node("/root/Node2D/OpenAIChatClient/ContextManager")
 @onready var _chatbar = get_node("/root/Node2D/GUI/Chatbar")
 
@@ -80,11 +80,8 @@ func _make_row(from_doro: bool, content: String) -> Control:
 	else:
 		row.add_child(_make_spacer())
 		row.add_child(bubble)
-		# 人这一侧不放头像（按要求），但留一个同宽的空位占住，
-		# 这样两侧气泡到窗口边缘的距离一致，看起来才齐。
-		var pad := Control.new()
-		pad.custom_minimum_size = Vector2(AVATAR_SIZE, 0)
-		row.add_child(pad)
+		# 人这一侧不放头像，也不留头像宽的空位 —— 留了反而显得气泡"缩"在中间。
+		# 没有头像就该更贴右边缘，只留一点点呼吸的余地。
 	return row
 
 func _make_avatar() -> Control:

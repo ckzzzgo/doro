@@ -1,9 +1,10 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=10 format=3]
 
 [ext_resource type="Theme" uid="uid://djmv4w4gt1hm6" path="res://themes/settings.tres" id="1_theme"]
 [ext_resource type="StyleBoxFlat" path="res://themes/pink_panel.tres" id="2_panel"]
 [ext_resource type="StyleBoxFlat" path="res://themes/pink_titlebar.tres" id="3_title"]
-[ext_resource type="StyleBoxFlat" path="res://themes/pink_field.tres" id="4_field"]
+[ext_resource type="StyleBoxFlat" path="res://themes/field_white.tres" id="4_field"]
+[ext_resource type="StyleBoxFlat" path="res://themes/pink_button.tres" id="9_btn"]
 [ext_resource type="Script" uid="uid://17csba4thvc5" path="res://scripts/gd/ui/setting/title_bar_dragging.gd" id="5_drag"]
 [ext_resource type="Texture2D" uid="uid://cggr24klb7t40" path="res://images/icons/ui/chat/clear.png" id="6_broom"]
 [ext_resource type="Texture2D" uid="uid://d4gdkpndtc417" path="res://images/icons/ui/settings/close.png" id="7_close"]
@@ -48,6 +49,13 @@ theme_override_constants/margin_right = 0
 [node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer/TitleBar/MarginContainer"]
 layout_mode = 2
 
+[node name="Label" type="Label" parent="VBoxContainer/TitleBar/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 14
+vertical_alignment = 1
+
 [node name="BroomButton" type="Button" parent="VBoxContainer/TitleBar/MarginContainer/HBoxContainer"]
 custom_minimum_size = Vector2(34, 0)
 layout_mode = 2
@@ -55,14 +63,7 @@ tooltip_text = "重新开始 —— 忘掉之前聊过的内容，从头开始�
 flat = true
 icon = ExtResource("6_broom")
 icon_alignment = 1
-theme_override_constants/icon_max_width = 20
-
-[node name="Label" type="Label" parent="VBoxContainer/TitleBar/MarginContainer/HBoxContainer"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 14
-vertical_alignment = 1
+theme_override_constants/icon_max_width = 18
 
 [node name="CloseButton" type="Button" parent="VBoxContainer/TitleBar/MarginContainer/HBoxContainer"]
 custom_minimum_size = Vector2(48, 0)
@@ -71,41 +72,67 @@ flat = true
 icon = ExtResource("7_close")
 icon_alignment = 1
 
-[node name="ScrollContainer" type="ScrollContainer" parent="VBoxContainer"]
+[node name="ChatArea" type="MarginContainer" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 4
+
+[node name="ScrollContainer" type="ScrollContainer" parent="VBoxContainer/ChatArea"]
 layout_mode = 2
 size_flags_vertical = 3
 theme = ExtResource("1_theme")
 horizontal_scroll_mode = 0
 
-[node name="Entries" type="VBoxContainer" parent="VBoxContainer/ScrollContainer"]
+[node name="Entries" type="VBoxContainer" parent="VBoxContainer/ChatArea/ScrollContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 10
 
-[node name="EmptyHint" type="Label" parent="VBoxContainer/ScrollContainer/Entries"]
+[node name="EmptyHint" type="Label" parent="VBoxContainer/ChatArea/ScrollContainer/Entries"]
 layout_mode = 2
 autowrap_mode = 3
 text = "还没聊过什么。在下面说句话吧。"
 
-[node name="InputRow" type="HBoxContainer" parent="VBoxContainer"]
+[node name="InputArea" type="MarginContainer" parent="VBoxContainer"]
 layout_mode = 2
-theme_override_constants/separation = 4
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 4
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
 
-[node name="LineEdit" type="LineEdit" parent="VBoxContainer/InputRow"]
-custom_minimum_size = Vector2(0, 30)
+[node name="InputRow" type="HBoxContainer" parent="VBoxContainer/InputArea"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="LineEdit" type="LineEdit" parent="VBoxContainer/InputArea/InputRow"]
+custom_minimum_size = Vector2(0, 32)
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 4
 theme = ExtResource("1_theme")
 theme_override_styles/normal = ExtResource("4_field")
 theme_override_styles/focus = ExtResource("4_field")
+theme_override_colors/font_color = Color(0.28, 0.28, 0.3, 1)
+theme_override_colors/font_placeholder_color = Color(0.66, 0.6, 0.63, 1)
+theme_override_constants/minimum_character_width = 0
 placeholder_text = "跟她说点什么……"
 keep_editing_on_text_submit = true
 context_menu_enabled = false
 emoji_menu_enabled = false
 caret_blink = true
 
-[node name="SendButton" type="Button" parent="VBoxContainer/InputRow"]
-custom_minimum_size = Vector2(48, 30)
+[node name="SendButton" type="Button" parent="VBoxContainer/InputArea/InputRow"]
+custom_minimum_size = Vector2(62, 32)
 layout_mode = 2
+size_flags_vertical = 4
 theme = ExtResource("1_theme")
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_colors/font_hover_color = Color(1, 1, 1, 1)
+theme_override_colors/font_pressed_color = Color(1, 1, 1, 1)
+theme_override_styles/normal = ExtResource("9_btn")
+theme_override_styles/hover = ExtResource("9_btn")
+theme_override_styles/pressed = ExtResource("9_btn")
 text = "发送"

@@ -1,0 +1,14 @@
+[gd_resource type="StyleBoxFlat" format=3]
+
+; 聊天栏里的输入框：完全不画边框。
+;
+; 之前给它加了左右两条竖线，结果那两条线把外面聊天栏的圆角边框从中间截断了 ——
+; 输入栏本身就是个框，里面再画线只会破坏外框的完整性。
+; 底色与面板一致，靠占位提示文字表明"这里能打字"就够了。
+
+[resource]
+bg_color = Color(1, 0.949020, 0.964706, 1)
+border_width_left = 0
+border_width_top = 0
+border_width_right = 0
+border_width_bottom = 0
