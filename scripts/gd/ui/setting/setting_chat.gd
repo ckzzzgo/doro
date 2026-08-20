@@ -171,6 +171,21 @@ func _on_fetch_pressed() -> void:
 		url += ":" + str(p["port"])
 	url += String(p["prefix"]) + "/models"
 
+	# 明文连接会把 API Key 裸发上网。聊天客户端那边有 _warn_if_key_exposed 把关，
+	# 这里却一直没有 —— 同一个 key、同一个风险，两条路却只有一条会提醒，
+	# 而这条恰好是用户第一次填完 key 就会点的。本机地址不算（Ollama 那类）。
+	var host_lower: String = String(p["host"]).to_lower()
+	if host_lower.begins_with("http://"):
+		var bare := host_lower.trim_prefix("http://")
+		var is_local := (
+			bare.begins_with("127.0.0.1")
+			or bare.begins_with("localhost")
+			or bare.begins_with("[::1]")
+		)
+		if not is_local:
+			_status.text = "这个地址是 http:// 明文连接，API Key 会裸发上网。请改成 https://。"
+			return
+
 	_status.text = "正在连接……"
 	_fetch_btn.disabled = true
 	var err := _http.request(url, [

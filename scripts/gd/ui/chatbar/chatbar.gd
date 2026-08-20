@@ -37,6 +37,11 @@ func _on_send_button_pressed():
 	# 刻意不清空输入框，用户填好设置后可以直接再点发送。
 	var hint := _chat_config_hint()
 	if not hint.is_empty():
+		# 标记成「这不是 Doro 说的话」。这条路径不会发请求、on_finish 也不会来，
+		# 所以眼下不会被写进历史；但把标记漏在这里，等于依赖「后面没人触发 on_finish」
+		# 这个巧合，一旦有人加了别的收尾路径，「你还没给我钥匙呢」就会变成她的上一句
+		# 发回给模型。
+		_showing_error = true
 		chat_dialog.clear_text()
 		_on_response(hint)
 		return
