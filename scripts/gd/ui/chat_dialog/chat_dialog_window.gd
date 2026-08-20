@@ -5,8 +5,8 @@ extends Window
 @export var y_offset: int = 0
 @export var x_offset: int = 0
 
-@onready var text_label: Label = $"ChatDialog/MarginContainer/NinePatchRect/MarginContainer/ScrollContainer/Label"
-@onready var scroll_container = $"ChatDialog/MarginContainer/NinePatchRect/MarginContainer/ScrollContainer"
+@onready var text_label: Label = $"ChatDialog/MarginContainer/Bubble/MarginContainer/ScrollContainer/Label"
+@onready var scroll_container = $"ChatDialog/MarginContainer/Bubble/MarginContainer/ScrollContainer"
 
 var _buffer: String = ""
 var _in_think_tag: bool = false
