@@ -19,6 +19,8 @@ const AVATAR := preload("res://images/ui/avatar_doro.png")
 ## 气泡最多占内容区宽度的这个比例。短句会自己收窄，只有长句才铺到上限再换行。
 const BUBBLE_MAX_RATIO := 0.66
 const AVATAR_SIZE := 40.0
+## 人的气泡右侧留白：和滚动条之间的间隙。
+const RIGHT_GAP := 10.0
 
 ## 正文字色。settings 主题里 Label 的默认字色是纯白（那是给粉色标题栏用的），
 ## 气泡底是浅色，不显式指定就是白字压浅底、等于隐形。
@@ -80,8 +82,14 @@ func _make_row(from_doro: bool, content: String) -> Control:
 	else:
 		row.add_child(_make_spacer())
 		row.add_child(bubble)
-		# 人这一侧不放头像，也不留头像宽的空位 —— 留了反而显得气泡"缩"在中间。
-		# 没有头像就该更贴右边缘，只留一点点呼吸的余地。
+		# 留一小条间隙，别让气泡贴着滚动条。
+		#
+		# 这里的取舍：消息区的右边距已经收到 4px（让滚动条尽量靠窗口边缘），如果气泡也
+		# 一路顶到内容区右缘，它和滚动条之间就只剩 0 —— 视觉上像是被滚动条压着。
+		# 所以间隙放在气泡这一侧，而不是靠加大消息区边距来腾（那样滚动条会跟着往里跑）。
+		var gap := Control.new()
+		gap.custom_minimum_size = Vector2(RIGHT_GAP, 0)
+		row.add_child(gap)
 	return row
 
 func _make_avatar() -> Control:
