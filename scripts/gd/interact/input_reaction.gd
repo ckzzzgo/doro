@@ -75,6 +75,12 @@ const WORK_HEAD_MOTION_WEIGHT := 0.24
 
 enum PawVisual { IDLE, TURN, PRESS }
 
+## 键盘模式的总开关（互动菜单里那一项）。
+##
+## 关掉之后照旧监听输入 —— 鼠标跟随和抚摸这些还要用 —— 只是不再因为敲键盘
+## 而进入打字模式。所以判断放在 _register_activity 里而不是干脆不启动监听。
+var _keyboard_mode_enabled: bool = true
+
 var _udp := PacketPeerUDP.new()
 var _bridge_pid := -1
 var _active := false
@@ -357,6 +363,8 @@ func _register_activity(mouse_activity: bool) -> void:
 	# 另外，往桌宠自己的输入框里打字时也不进：这个模式表达的是「你在别的软件里干活，
 	# 我在旁边陪着」，对着她说话时进入它语义上就是错的。而且打字模式那套桌面图
 	# z_index 是 70、盖在 GUI（z_index 0）之上，会把聊天栏压住。
+	if not _keyboard_mode_enabled:
+		return
 	if not _active and not mouse_activity and not window.docking and not _own_text_field_focused():
 		DoroLog.d("[DORO] work-mode TRIGGER by keyboard t=%d" % Time.get_ticks_msec())
 		_activate_work_mode()
@@ -784,3 +792,14 @@ func _run_dev_preview_capture() -> void:
 		push_error("找不到开发用的截图脚本")
 		return
 	await script.run(self)
+
+
+## 由互动菜单里的「键盘模式」开关调用。
+##
+## 关掉时如果她正处在打字模式，立刻退出 —— 不能等那 7 秒空闲超时，
+## 否则用户会以为开关点了没用。
+func set_keyboard_mode_enabled(value: bool) -> void:
+	_keyboard_mode_enabled = value
+	if not value and _active:
+		DoroLog.d("[DORO] 键盘模式被关掉，立刻退出打字模式 t=%d" % Time.get_ticks_msec())
+		_deactivate_work_mode()

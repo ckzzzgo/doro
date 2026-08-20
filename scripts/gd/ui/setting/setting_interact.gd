@@ -43,6 +43,11 @@ func _bind_components():
 	_section.set_prop(&"dock", true)
 	_section.bind(&"dock").with(_update_dock).to_check_box(_menu("DockCheckbox"))
 
+	# 默认开：这是原有行为，不能因为加了开关就把功能从所有人手里悄悄拿走。
+	# 不喜欢的人自己关掉。
+	_section.set_prop(&"keyboard_mode", true)
+	_section.bind(&"keyboard_mode").with(_update_keyboard_mode).to_check_box(_menu("KeyboardModeCheckbox"))
+
 func _load_config():
 	_menu("PinCheckbox").set_pressed_no_signal(_section.get_prop(&"pin"))
 	_apply_pin(_section.get_prop(&"pin"))
@@ -56,6 +61,9 @@ func _load_config():
 	_menu("DockCheckbox").set_pressed_no_signal(_section.get_prop(&"dock"))
 	_apply_dock(_section.get_prop(&"dock"))
 
+	_menu("KeyboardModeCheckbox").set_pressed_no_signal(_section.get_prop(&"keyboard_mode"))
+	_apply_keyboard_mode(_section.get_prop(&"keyboard_mode"))
+
 func _update_pin(_name, value):
 	_apply_pin(value)
 
@@ -67,6 +75,9 @@ func _update_mouse_follow(_name, value):
 
 func _update_dock(_name, value):
 	_apply_dock(value)
+
+func _update_keyboard_mode(_name, value):
+	_apply_keyboard_mode(value)
 
 ## 主窗口的置顶交给 WindowManager 用 SetWindowPos 施加。
 ##
@@ -90,3 +101,13 @@ func _apply_mouse_follow(value: bool) -> void:
 
 func _apply_dock(value: bool) -> void:
 	_root.enable_docking = value
+
+
+## 键盘模式的总开关。
+##
+## 关掉之后她不会再因为你敲键盘而摆出桌子和键盘。如果关的当下她正处在打字模式里，
+## 立刻退出 —— 否则得等 7 秒空闲超时，用户会以为开关没生效。
+func _apply_keyboard_mode(value: bool) -> void:
+	var ir = get_node_or_null("/root/Node2D/InputReaction")
+	if ir:
+		ir.set_keyboard_mode_enabled(value)
