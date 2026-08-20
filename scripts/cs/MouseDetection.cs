@@ -20,12 +20,11 @@ public partial class MouseDetection : Node
 	public int SkippedReadbacks = 0;
 	public int PerformedReadbacks = 0;
 	
-	[Signal]
-	public delegate void MouseEnteredEventHandler();
-	
-	[Signal]
-	public delegate void MouseExitedEventHandler();
-	
+	// 原先这里还有 MouseEntered / MouseExited 两个信号。唯一的监听者是 window.gd 用来
+	// 数「有人来烦她」的次数，而那个数法本身是错的 —— 待机动画的晃动每次重新盖住鼠标
+	// 都会发一次 MouseEntered，光是她自己晃就能把计数刷到生气。改成在 window.gd 里按
+	// mouse_hovered 的上升沿数之后，这两个信号就没有监听者了，一起删掉。
+	// 需要知道悬停状态的地方直接读 mouse_hovered。
 
 	public override void _Ready()
 	{
@@ -101,11 +100,7 @@ public partial class MouseDetection : Node
 			// 出了窗口就是没在悬停，如实收尾。
 			SkippedReadbacks++;
 			SetClickability(false);
-			if (mouse_hovered)
-			{
-				EmitSignal(SignalName.MouseExited);
-				mouse_hovered = false;
-			}
+			mouse_hovered = false;
 			return;
 		}
 
@@ -121,17 +116,9 @@ public partial class MouseDetection : Node
 			Color pixel = img.GetPixel(x, y);
 			SetClickability(pixel.A > 0.5f);
 			
-			if (pixel.A > 0.5f){
-				if (!mouse_hovered) EmitSignal(SignalName.MouseEntered);
-				mouse_hovered = true;
-			}
-			else{
-				if(mouse_hovered) EmitSignal(SignalName.MouseExited);
-				mouse_hovered = false;
-			}
+			mouse_hovered = pixel.A > 0.5f;
 		}
 		else{
-			if(mouse_hovered) EmitSignal(SignalName.MouseExited);
 			mouse_hovered = false;
 		}
 

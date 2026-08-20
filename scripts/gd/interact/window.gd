@@ -57,19 +57,9 @@ func _ready() -> void:
 	update_window()
 
 	add_child(docking_time_counter)
-	mouseDetection.connect("MouseEntered", _on_mouse_entered_while_docked)
-
-## 「被打扰」计数只在停靠时累加。
-##
-## 这个计数唯一的用途是「贴在屏幕边缘被反复划过」的情绪递进，平时抚摸她不该往里加 ——
-## 原先它直接接在 MouseEntered 上，不分停靠与否，于是正常玩一会儿就把计数顶上去了，
-## 下一次停靠一上来就是生气。
-func _on_mouse_entered_while_docked() -> void:
-	if docking:
-		docking_time_counter.increase()
 
 func _process(delta: float) -> void:
-	dock_pop()
+	dock_pop(delta)
 	_guard_drag_stuck()
 
 func _input(event: InputEvent) -> void:
@@ -328,6 +318,8 @@ func _undock() -> void:
 	docking = false
 	docking_dir = DOCK_NONE
 	docking_time_counter.reset()
+	_peeking = false
+	_peek_lost_time = 0.0
 
 func _dock_to(win_pos: Vector2i, win_size: Vector2i, screen_rect: Rect2i, dir: int) -> Vector2i:
 	docking = true
@@ -359,8 +351,58 @@ func _dock_to(win_pos: Vector2i, win_size: Vector2i, screen_rect: Rect2i, dir: i
 			window_docking.emit(true, DOCK_BOTTOM)
 			return Vector2i(win_pos.x, screen_rect.end.y - win_size.y)
 	return win_pos
+## 停靠探头的滞回。
+##
+## 「鼠标是不是指着她」判定的是鼠标底下那一个像素透不透明。停靠时她只露出一条，而
+## 露出的那部分带着待机动画的轻微晃动 —— 鼠标停在发卡这类细长的东西上，发卡晃过来
+## 就判定到、晃走就判定不到。鼠标根本没动，判定却在每帧真假之间跳，探头逻辑照着跳，
+## 看起来就是她在抽搐。
+##
+## 所以两个方向不对称：探头在判定到的那一帧立刻发生（要跟手），缩回要过滞回 ——
+##   鼠标挪开超过 PEEK_RELEASE_MOVE 像素   → 立刻缩回（用户明确表示「不看你了」）
+##   鼠标没挪，但连续判定不到超过 PEEK_RELEASE_TIME → 缩回（兜底，免得她对着空气探头）
+## 晃动造成的判定丢失只有几帧，够不到两秒，所以不会再抽。
+##
+## 为什么不靠「多采几个像素」把判定本身做稳：那会把穿透判定一起放宽，点击就会在她
+## 轮廓外面被吃掉。判定要精确，稳定性放在这一层解决。
+##
+## 代价说清楚：万一某段动画让她连续两秒都碰不到鼠标那一点，她仍会缩一次再探出来 ——
+## 但那是两秒一次的慢动作，看着像她自己在犹豫，不是抽搐。
+const PEEK_RELEASE_TIME := 2.0
+const PEEK_RELEASE_MOVE := 20
 
-func dock_pop():
+var _peeking: bool = false
+var _peek_lost_time: float = 0.0
+var _peek_anchor: Vector2i = Vector2i.ZERO
+
+func _peek_should_stay(delta: float) -> bool:
+	var mouse := DisplayServer.mouse_get_position()
+
+	if mouseDetection.mouse_hovered:
+		# 上升沿才算「有人来烦她」。原先这个计数挂在 MouseEntered 信号上，那个信号
+		# 每次晃动重新盖住鼠标都会发一次 —— 于是光是她自己晃就能把计数刷到生气。
+		if not _peeking:
+			docking_time_counter.increase()
+		_peeking = true
+		_peek_lost_time = 0.0
+		_peek_anchor = mouse
+		return true
+
+	if not _peeking:
+		return false
+
+	if _peek_anchor.distance_squared_to(mouse) > PEEK_RELEASE_MOVE * PEEK_RELEASE_MOVE:
+		_peeking = false
+		return false
+
+	_peek_lost_time += delta
+	if _peek_lost_time >= PEEK_RELEASE_TIME:
+		_peeking = false
+		return false
+	return true
+
+
+func dock_pop(delta: float = 0.0):
 	# 打字模式下只有「没停靠」时才让位给打字姿态。一旦停靠，停靠姿态优先 ——
 	# 否则整个探头逻辑在停靠期间根本不跑，鼠标扫过露出的部分毫无反应，
 	# 而普通模式下是有反应的，两种模式行为不一致。
@@ -383,7 +425,8 @@ func dock_pop():
 	# 一旦按下左键就把模型缩回去，鼠标当场落到透明像素上 —— MouseDetection 会
 	# 开启点击穿透，抬起事件被系统丢弃，这次拖动随即被 _guard_drag_stuck 撤销。
 	# 结果就是"抓着她露出来的那截，怎么都拖不出边缘"。
-	if dragging or mouseDetection.mouse_hovered:
+	var peek := _peek_should_stay(delta)
+	if dragging or peek:
 		_set_dock_position(docking_dir, true)
 
 		# 拖动中不改表情：正在被拖走，探头的疑惑/生气递进没有意义。
