@@ -26,6 +26,12 @@ if not exist "%GODOT%" (
 
 set "PATH=%DOTNET%;%PATH%"
 
+if not exist "%REPO%\project.godot" (
+  echo [X] 找不到 project.godot，%REPO% 不像是项目目录
+  pause
+  exit /b 1
+)
+
 echo [1/2] 编译 C# ...
 pushd "%REPO%"
 dotnet build -v quiet -nologo
