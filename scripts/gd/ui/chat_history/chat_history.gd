@@ -1,4 +1,4 @@
-extends NinePatchRect
+extends Panel
 
 ## 聊天记录面板。
 ##

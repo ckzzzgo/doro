@@ -1,6 +1,7 @@
-[gd_scene load_steps=9 format=3 uid="uid://belewrb1nqyk8"]
+[gd_scene load_steps=10 format=3 uid="uid://belewrb1nqyk8"]
 
-[ext_resource type="Texture2D" uid="uid://cquwbna43xqib" path="res://images/icons/ui/toolbar/bg.png" id="1_8555v"]
+[ext_resource type="StyleBoxFlat" path="res://themes/pink_panel.tres" id="pink_panel"]
+[ext_resource type="StyleBoxFlat" path="res://themes/pink_field.tres" id="pink_field"]
 [ext_resource type="Script" uid="uid://ch8gxey7u6rfi" path="res://scripts/gd/ui/chatbar/chatbar.gd" id="2_3isnr"]
 [ext_resource type="Theme" uid="uid://71a443i30mmx" path="res://themes/toolbar.tres" id="2_l5u1h"]
 [ext_resource type="Texture2D" uid="uid://belaktxterhfx" path="res://images/icons/ui/chat/send.png" id="4_apdq1"]
@@ -9,7 +10,7 @@
 [ext_resource type="Texture2D" uid="uid://ddx5qc8ftr32u" path="res://images/icons/ui/chat/stop.png" id="6_dduo8"]
 [ext_resource type="Texture2D" uid="uid://dwwpm83nagpcn" path="res://images/icons/ui/chat/back.png" id="7_hp1p8"]
 
-[node name="Chatbar" type="NinePatchRect" node_paths=PackedStringArray("line_edit", "send_btn", "stop_btn")]
+[node name="Chatbar" type="Panel" node_paths=PackedStringArray("line_edit", "send_btn", "stop_btn")]
 anchors_preset = -1
 anchor_left = 0.225
 anchor_right = 0.5
@@ -17,14 +18,7 @@ offset_left = -144.0
 offset_right = 100.0
 offset_bottom = 60.0
 grow_horizontal = 2
-texture = ExtResource("1_8555v")
-region_rect = Rect2(0, 0, 200, 200)
-patch_margin_left = 30
-patch_margin_top = 30
-patch_margin_right = 30
-patch_margin_bottom = 30
-axis_stretch_horizontal = 2
-axis_stretch_vertical = 2
+theme_override_styles/panel = ExtResource("pink_panel")
 script = ExtResource("2_3isnr")
 line_edit = NodePath("MarginContainer/HBoxContainer/LineEdit")
 send_btn = NodePath("MarginContainer/HBoxContainer/SendButton")
@@ -46,7 +40,7 @@ theme_override_constants/separation = 30
 
 [node name="ChatWindowButton" type="Button" parent="MarginContainer/HBoxContainer"]
 layout_mode = 2
-tooltip_text = "聊天记录 —— 看看之前都聊了什么"
+tooltip_text = "打开 DORO 窗口 —— 看看之前都聊了什么"
 theme = ExtResource("2_l5u1h")
 theme_override_constants/icon_max_width = 28
 icon = ExtResource("4_yrg7x")
@@ -55,6 +49,8 @@ icon = ExtResource("4_yrg7x")
 layout_mode = 2
 size_flags_horizontal = 3
 theme = ExtResource("2_l5u1h")
+theme_override_styles/normal = ExtResource("pink_field")
+theme_override_styles/focus = ExtResource("pink_field")
 placeholder_text = "输入文本以聊天~"
 keep_editing_on_text_submit = true
 context_menu_enabled = false

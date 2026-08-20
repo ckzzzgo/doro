@@ -1,4 +1,4 @@
-extends NinePatchRect
+extends Panel
 
 
 func _ready() -> void:

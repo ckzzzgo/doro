@@ -1,0 +1,22 @@
+[gd_resource type="StyleBoxFlat" format=3]
+
+; 桌宠所有面板的统一底样式：气泡、输入栏、工具栏、聊天记录窗。
+;
+; 单独放成一份资源而不是在每个场景里各写一遍，是为了「改颜色只动一处」——
+; 之前气泡、记录窗各自挑色，结果两处的文字对比度都出过问题。
+;
+; 底色刻意只粉一点点：Doro 自己是粉毛，面板粉重了会跟她抢眼，
+; 这个浓度只够「一眼看出不是白的」。
+; 边框色取自 input_stage_v3 里已有的 TABLE_EDGE_COLOR，和打字模式那张桌子同色系。
+
+[resource]
+bg_color = Color(1, 0.949020, 0.964706, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.862745, 0.654902, 0.698039, 1)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14

@@ -461,7 +461,7 @@ offset_right = 0.0
 offset_bottom = 0.0
 
 [node name="ChatHistory" type="Window" parent="GUI"]
-title = "聊天记录"
+title = "DORO"
 initial_position = 2
 size = Vector2i(420, 460)
 visible = false
