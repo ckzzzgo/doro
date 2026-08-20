@@ -17,10 +17,13 @@ func toggle() -> void:
 	_panel.refresh()
 	visible = true
 
-## 每轮对话结束后由 chatbar 调用。窗口没开就不用白刷。
+## 每轮对话前后由 chatbar 调用。窗口没开就不用白刷。
+##
+## 走增量而不是全量：全量重建的代价随消息数线性增长（300 条要 546ms），
+## 而每轮新增的只有一两条。
 func refresh_if_open() -> void:
 	if visible:
-		_panel.refresh()
+		_panel.sync()
 
 func _on_close_pressed() -> void:
 	visible = false

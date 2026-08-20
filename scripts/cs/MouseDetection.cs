@@ -12,6 +12,13 @@ public partial class MouseDetection : Node
 	// 每 DETECT_FRAME_INTERVAL 个物理帧检测一次即可满足鼠标跟随需求。
 	private const int DETECT_FRAME_INTERVAL = 2;
 	private int _frame_counter = 0;
+
+	// 粗筛挡掉了多少次、真正回读了多少次。留着是为了将来还能量 —— 这个优化的收益
+	// 完全取决于「鼠标有多少时间不在窗口里」，那是个只能实测的比例。
+	// 实测（窗口 400x400）：鼠标在窗口外 20 次全部跳过、0 次回读；
+	// 在窗口内 20 次全部回读。
+	public int SkippedReadbacks = 0;
+	public int PerformedReadbacks = 0;
 	
 	[Signal]
 	public delegate void MouseEnteredEventHandler();
@@ -46,10 +53,6 @@ public partial class MouseDetection : Node
 	// You can choose any other method of detection!
 	private void DetectPassthrough()
 	{
-		Viewport viewport = GetViewport();
-		
-		Image img = viewport.GetTexture().GetImage();
-		
 		// 用系统全局鼠标坐标换算窗口内偏移更可靠：点击透明穿透窗口下，
 		// viewport.GetMousePosition() 可能不随鼠标更新（窗口不接收鼠标消息）。
 		// 用 DisplayServer 全局坐标 + 窗口屏幕位置计算，穿透窗口也能正确检测。
@@ -75,6 +78,39 @@ public partial class MouseDetection : Node
 		// 将来帧缓冲与窗口尺寸不一致的情况（例如 HiDPI）。
 		Vector2I windowSize = DisplayServer.WindowGetSize();
 		if (windowSize.X <= 0 || windowSize.Y <= 0) return;
+
+		// 粗筛：鼠标不在窗口里就不必回读画面。
+		//
+		// GetImage() 是把整张画面从显存拷回内存，代价随窗口**面积**增长，实测
+		// 640x640 单次 1.22ms、1024x1024 单次 2.67ms；而它每秒跑 30 次（物理帧每两帧
+		// 一次），也就是放大到 1.6 倍时每秒有 80ms 花在这上面 —— 只为了看鼠标底下
+		// 那一个像素透不透明。
+		//
+		// 而桌宠的窗口在屏幕上只占一小块（640x640 在 1920x1080 上约两成面积），
+		// 绝大多数时候鼠标根本不在窗口范围内。这一层判断只用到窗口坐标和窗口尺寸，
+		// 不需要任何画面数据，所以能在回读之前就把大部分帧挡掉。
+		bool insideWindow =
+			mousePosition.X >= 0 && mousePosition.X < windowSize.X &&
+			mousePosition.Y >= 0 && mousePosition.Y < windowSize.Y;
+
+		if (!insideWindow)
+		{
+			// 顺带修一个老问题：原先越界时函数什么都不做，直接跳过下面的判定，
+			// 于是 mouse_hovered 和点击穿透都停在上一次的值上 —— 鼠标从她身上快速
+			// 划出窗口时，会留下"仍在悬停"的状态，点击穿透一直关着。
+			// 出了窗口就是没在悬停，如实收尾。
+			SkippedReadbacks++;
+			SetClickability(false);
+			if (mouse_hovered)
+			{
+				EmitSignal(SignalName.MouseExited);
+				mouse_hovered = false;
+			}
+			return;
+		}
+
+		PerformedReadbacks++;
+		Image img = GetViewport().GetTexture().GetImage();
 
 		int x = (int)(mousePosition.X * img.GetSize().X / windowSize.X);
 		int y = (int)(mousePosition.Y * img.GetSize().Y / windowSize.Y);

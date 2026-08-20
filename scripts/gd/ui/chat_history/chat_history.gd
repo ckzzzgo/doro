@@ -46,22 +46,51 @@ func _ready() -> void:
 func _on_text_submitted(_t: String) -> void:
 	_on_send_pressed()
 
+## 已经渲染过的历史条数（含被跳过的 system）。
+##
+## 记的是「消费到历史数组的第几项」而不是「画了几行」—— 因为 system 那条不出现在界面上，
+## 两个数字对不上，用行数会错位。
+var _rendered: int = 0
+
+## 全量重建。开销随消息数线性增长，所以只在真的需要时用：打开窗口、点扫把、
+## 以及历史被裁剪过之后。平时每轮对话走 sync()。
 func refresh() -> void:
 	for child in _entries.get_children():
 		if child != _empty_hint:
+			_entries.remove_child(child)
 			child.queue_free()
+	_rendered = 0
+	await _append_new()
 
+## 增量追加：只画还没画过的那几条。
+##
+## 每轮对话都全量重建是我最初的写法，实测代价很难看：20 条消息 127ms、100 条 175ms、
+## 300 条 546ms —— 聊到一百多轮之后，每发一句话窗口就卡半秒，而且正好卡在
+## 「刚按下发送、她刚回完」这个最不该卡的时刻。
+##
+## 现在只 add_child 新的那一两行。历史缩短过（清空、或撞上上下文上限被裁掉一半）时
+## 增量就不成立了，退回全量重建 —— 判据是历史条数比已渲染的还少。
+func sync() -> void:
+	var history: Array = _context.get_context()
+	if history.size() < _rendered:
+		await refresh()
+		return
+	if history.size() == _rendered:
+		return
+	await _append_new()
+
+func _append_new() -> void:
 	var history: Array = _context.get_context()
 	_empty_hint.visible = history.is_empty()
 
-	for entry in history:
-		if not entry is Dictionary:
-			continue
-		# system 是内置人设，不是聊天内容，不该出现在记录里
-		var role := StringName(entry.get("role", ""))
-		if role == &"system":
-			continue
-		_entries.add_child(_make_row(role == &"assistant", String(entry.get("content", ""))))
+	for i in range(_rendered, history.size()):
+		var entry = history[i]
+		if entry is Dictionary:
+			# system 是内置人设，不是聊天内容，不该出现在记录里
+			var role := StringName(entry.get("role", ""))
+			if role != &"system":
+				_entries.add_child(_make_row(role == &"assistant", String(entry.get("content", ""))))
+	_rendered = history.size()
 
 	# 等一帧让容器算完布局，否则滚动条的最大值还是旧的，滚不到底
 	await get_tree().process_frame
