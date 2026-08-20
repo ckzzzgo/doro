@@ -179,17 +179,35 @@ func _on_thinking(_content: String) -> void:
 func _history_window():
 	return get_node("/root/Node2D/GUI/ChatHistory")
 
+## 是不是「因为 DORO 窗口开着」才把自己藏起来的。
+##
+## 这个标记不能省。之前 _process 里写的是「只要 DORO 窗没开且自己不可见就恢复显示」，
+## 结果分不清两种隐藏：一种是为 DORO 窗让位，另一种是用户按了「返回」回到工具栏。
+## 后者会在按下的下一帧被强行恢复 —— 表现就是返回键失灵。
+var _hidden_for_history: bool = false
+
 ## 打开 DORO 窗口时这条聊天栏让位：那边已经有自己的输入框，两条输入栏同时摆着
 ## 只会让人犹豫该往哪打字。关掉窗口它自己会回来（见 _process）。
 func _on_chat_window_button_pressed():
 	var win = _history_window()
 	win.toggle()
-	visible = not win.visible
+	if win.visible:
+		visible = false
+		_hidden_for_history = true
+	else:
+		visible = true
+		_hidden_for_history = false
 
 func _process(_delta: float) -> void:
-	# DORO 窗口可能被它自己的关闭按钮关掉，那时也要把聊天栏放回来。
-	# 用轮询而不是接信号：Window 没有「可见性变了」的信号，
+	# DORO 窗口可能被它自己的关闭按钮关掉，那时要把聊天栏放回来。
+	# 用轮询而不是接信号：Window 没有「可见性变了」这个信号，
 	# visibility_changed 只在 Control 上有。
+	#
+	# 只恢复「我们自己为让位而藏起来的」那一种，别的隐藏原因一律不碰。
+	if not _hidden_for_history:
+		return
 	var win = _history_window()
-	if win and not win.visible and not visible and get_parent().visible:
-		visible = true
+	if win and not win.visible:
+		_hidden_for_history = false
+		if get_parent().visible:
+			visible = true
