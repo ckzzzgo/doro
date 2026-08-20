@@ -1,4 +1,10 @@
-extends NinePatchRect
+extends Control
+
+## 标题栏：显示标题 + 按住拖动窗口。
+##
+## 刻意 extends Control 而不是某个具体控件：设置窗口的标题栏是 NinePatchRect（贴图），
+## DORO 窗口的是 Panel（StyleBox，为了做上圆角），两者都是 Control，共用这一份逻辑。
+## 脚本的 extends 必须是节点类型的祖先，否则 Godot 会直接不挂脚本 —— 这个坑刚踩过。
 
 @export var title: StringName
 @export var show_close_button: bool = true

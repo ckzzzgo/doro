@@ -1,4 +1,10 @@
-extends Node
+extends Panel
+
+## 桌宠旁边那条聊天栏。
+##
+## extends 必须跟上节点的实际类型：这个节点是 Panel（原先是贴图 NinePatchRect），
+## 写 extends Node 虽然能挂上（Panel 是 Node 的后代），但脚本里就用不了 visible
+## 这类 Control 成员 —— 解析期就会报 Identifier not declared。
 
 @export var chat_client: OpenAIChatClient
 @export var context_manager: ContextManager
@@ -28,15 +34,26 @@ func _ready() -> void:
 	chat_client.on_thinking.connect(_on_thinking)
 
 func _on_send_button_pressed():
-	var text = line_edit.get_text()
+	if send_text(line_edit.get_text()):
+		line_edit.clear()
+
+## 发送一句话。返回是否真的发出去了。
+##
+## 抽成公开方法是因为现在有两个输入入口：桌宠旁边这条聊天栏，和 DORO 窗口底部那条。
+## 配置检查、上下文、溢出重试、头顶气泡这一整套只该有一份实现 —— 两个入口共用同一条
+## 路，行为才不会分叉（比如一边会检查缺 key、另一边不会）。
+##
+## 输入框由调用方自己清：聊天栏发完清自己的，DORO 窗发完清它自己的。
+func send_text(text: String) -> bool:
 	if text.strip_edges().is_empty():
-		return
+		return false
 
 	# 配置不全时不要去连接：否则只会得到一句笼统的"无法连接API"，新用户根本
 	# 不知道是自己没填 API Key。这里让 Doro 自己说缺什么、去哪填。
 	# 刻意不清空输入框，用户填好设置后可以直接再点发送。
 	var hint := _chat_config_hint()
 	if not hint.is_empty():
+		# 刻意不清输入框：用户填好设置后可以直接再点发送
 		# 标记成「这不是 Doro 说的话」。这条路径不会发请求、on_finish 也不会来，
 		# 所以眼下不会被写进历史；但把标记漏在这里，等于依赖「后面没人触发 on_finish」
 		# 这个巧合，一旦有人加了别的收尾路径，「你还没给我钥匙呢」就会变成她的上一句
@@ -44,29 +61,33 @@ func _on_send_button_pressed():
 		_showing_error = true
 		chat_dialog.clear_text()
 		_on_response(hint)
-		return
+		return false
 
 	if chat_client.chat(text, context_manager.get_context()):
 		_last_sent = text
 		_retried_overflow = false
 		_showing_error = false
 		_thinking_shown = false
-		context_manager.add_context(ContextManager.ROLE_USER, line_edit.text)
-		# 立刻刷一次记录窗口：不刷的话自己发的那句要等她回完才出现，
-		# 开着记录窗口时看起来就像「没同步进去」。
+		context_manager.add_context(ContextManager.ROLE_USER, text)
+		# 立刻刷一次 DORO 窗口：不刷的话自己发的那句要等她回完才出现，
+		# 开着窗口时看起来就像「没同步进去」。
 		_history_window().refresh_if_open()
-		line_edit.clear()
 		chat_dialog.clear_text()
 		send_btn.visible = false
 		stop_btn.visible = true
-	else:
-		chat_dialog.clear_text()
-		_on_response("错误：无法连接API")
+		return true
+
+	chat_dialog.clear_text()
+	_showing_error = true
+	_on_response("错误：无法连接API")
+	return false
 	
 func _on_stop_button_pressed():
 	chat_client.cancel()
 	
-func _on_clear_button_pressed():
+## 清空上下文。扫把按钮已移到 DORO 窗口左上角，这里保留成公开入口，
+## 便于将来别处（托盘、快捷键）复用。
+func clear_context():
 	context_manager.clear_context()
 	_retried_overflow = false
 	_pending_overflow_retry = false
@@ -158,5 +179,17 @@ func _on_thinking(_content: String) -> void:
 func _history_window():
 	return get_node("/root/Node2D/GUI/ChatHistory")
 
+## 打开 DORO 窗口时这条聊天栏让位：那边已经有自己的输入框，两条输入栏同时摆着
+## 只会让人犹豫该往哪打字。关掉窗口它自己会回来（见 _process）。
 func _on_chat_window_button_pressed():
-	_history_window().toggle()
+	var win = _history_window()
+	win.toggle()
+	visible = not win.visible
+
+func _process(_delta: float) -> void:
+	# DORO 窗口可能被它自己的关闭按钮关掉，那时也要把聊天栏放回来。
+	# 用轮询而不是接信号：Window 没有「可见性变了」的信号，
+	# visibility_changed 只在 Control 上有。
+	var win = _history_window()
+	if win and not win.visible and not visible and get_parent().visible:
+		visible = true

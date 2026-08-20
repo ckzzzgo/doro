@@ -465,11 +465,13 @@ title = "DORO"
 initial_position = 2
 size = Vector2i(420, 460)
 visible = false
+transparent_bg = true
 borderless = true
+transparent = true
 min_size = Vector2i(320, 240)
 script = ExtResource("41_hist")
 
-[node name="NinePatchRect" parent="GUI/ChatHistory" instance=ExtResource("40_hist")]
+[node name="Root" parent="GUI/ChatHistory" instance=ExtResource("40_hist")]
 offset_right = 0.0
 offset_bottom = 0.0
 

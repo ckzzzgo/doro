@@ -1,19 +1,23 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=9 format=3]
 
-[ext_resource type="Theme" uid="uid://djmv4w4gt1hm6" path="res://themes/settings.tres" id="2_theme"]
-[ext_resource type="PackedScene" uid="uid://dkq4fyfppmif4" path="res://prefabs/ui/setting/title_bar.tscn" id="3_title"]
-[ext_resource type="StyleBoxFlat" path="res://themes/pink_panel.tres" id="pink_panel"]
-[ext_resource type="Script" path="res://scripts/gd/ui/chat_history/chat_history.gd" id="4_script"]
+[ext_resource type="Theme" uid="uid://djmv4w4gt1hm6" path="res://themes/settings.tres" id="1_theme"]
+[ext_resource type="StyleBoxFlat" path="res://themes/pink_panel.tres" id="2_panel"]
+[ext_resource type="StyleBoxFlat" path="res://themes/pink_titlebar.tres" id="3_title"]
+[ext_resource type="StyleBoxFlat" path="res://themes/pink_field.tres" id="4_field"]
+[ext_resource type="Script" uid="uid://17csba4thvc5" path="res://scripts/gd/ui/setting/title_bar_dragging.gd" id="5_drag"]
+[ext_resource type="Texture2D" uid="uid://cggr24klb7t40" path="res://images/icons/ui/chat/clear.png" id="6_broom"]
+[ext_resource type="Texture2D" uid="uid://d4gdkpndtc417" path="res://images/icons/ui/settings/close.png" id="7_close"]
+[ext_resource type="Script" path="res://scripts/gd/ui/chat_history/chat_history.gd" id="8_script"]
 
-[node name="NinePatchRect" type="Panel"]
+[node name="Root" type="Panel"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme = ExtResource("2_theme")
-theme_override_styles/panel = ExtResource("pink_panel")
-script = ExtResource("4_script")
+theme = ExtResource("1_theme")
+theme_override_styles/panel = ExtResource("2_panel")
+script = ExtResource("8_script")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 layout_mode = 1
@@ -24,37 +28,84 @@ grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/separation = 0
 
-[node name="TitleBar" parent="VBoxContainer" instance=ExtResource("3_title")]
+[node name="TitleBar" type="Panel" parent="VBoxContainer"]
+custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
+theme_override_styles/panel = ExtResource("3_title")
+script = ExtResource("5_drag")
 title = &"DORO"
+
+[node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/TitleBar"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_right = 0
+
+[node name="HBoxContainer" type="HBoxContainer" parent="VBoxContainer/TitleBar/MarginContainer"]
+layout_mode = 2
+
+[node name="BroomButton" type="Button" parent="VBoxContainer/TitleBar/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(34, 0)
+layout_mode = 2
+tooltip_text = "重新开始 —— 忘掉之前聊过的内容，从头开始一段新对话"
+flat = true
+icon = ExtResource("6_broom")
+icon_alignment = 1
+theme_override_constants/icon_max_width = 20
+
+[node name="Label" type="Label" parent="VBoxContainer/TitleBar/MarginContainer/HBoxContainer"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 14
+vertical_alignment = 1
+
+[node name="CloseButton" type="Button" parent="VBoxContainer/TitleBar/MarginContainer/HBoxContainer"]
+custom_minimum_size = Vector2(48, 0)
+layout_mode = 2
+flat = true
+icon = ExtResource("7_close")
+icon_alignment = 1
 
 [node name="ScrollContainer" type="ScrollContainer" parent="VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
-theme = ExtResource("2_theme")
+theme = ExtResource("1_theme")
 horizontal_scroll_mode = 0
 
 [node name="Entries" type="VBoxContainer" parent="VBoxContainer/ScrollContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 0
+theme_override_constants/separation = 10
 
 [node name="EmptyHint" type="Label" parent="VBoxContainer/ScrollContainer/Entries"]
 layout_mode = 2
-theme = ExtResource("2_theme")
-theme_type_variation = &"LabelItem"
-text = "还没聊过什么。在下面的输入框里跟她说句话吧。"
 autowrap_mode = 3
+text = "还没聊过什么。在下面说句话吧。"
 
-[node name="Footer" type="HBoxContainer" parent="VBoxContainer"]
+[node name="InputRow" type="HBoxContainer" parent="VBoxContainer"]
 layout_mode = 2
+theme_override_constants/separation = 4
 
-[node name="HSpacer" type="Control" parent="VBoxContainer/Footer"]
+[node name="LineEdit" type="LineEdit" parent="VBoxContainer/InputRow"]
+custom_minimum_size = Vector2(0, 30)
 layout_mode = 2
 size_flags_horizontal = 3
+theme = ExtResource("1_theme")
+theme_override_styles/normal = ExtResource("4_field")
+theme_override_styles/focus = ExtResource("4_field")
+placeholder_text = "跟她说点什么……"
+keep_editing_on_text_submit = true
+context_menu_enabled = false
+emoji_menu_enabled = false
+caret_blink = true
 
-[node name="RestartButton" type="Button" parent="VBoxContainer/Footer"]
+[node name="SendButton" type="Button" parent="VBoxContainer/InputRow"]
+custom_minimum_size = Vector2(48, 30)
 layout_mode = 2
-tooltip_text = "忘掉之前聊过的内容，从头开始一段新对话"
-theme = ExtResource("2_theme")
-text = "重新开始"
+theme = ExtResource("1_theme")
+text = "发送"

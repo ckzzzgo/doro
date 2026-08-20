@@ -1,36 +1,48 @@
 extends Panel
 
-## 聊天记录面板。
+## DORO 窗口的面板：完整的聊天界面。
 ##
-## 头顶那个气泡只显示最新一句，聊上几轮就看不到前面说过什么了。但气泡本身不适合
-## 承担「翻记录」这件事：它跟着桌宠飘、尺寸小，塞十几句进去会挡住半个屏幕，还分不清
-## 谁说的。所以分工：气泡负责「此刻她在说什么」，这个窗口负责「我们都聊了什么」。
+## 头顶那个气泡只显示最新一句，聊几轮就看不到前面说过什么。这个窗口负责「我们都聊了
+## 什么」，并且自带输入栏 —— 打开它之后，跟她说话就在这里说，桌宠旁边那条聊天栏会
+## 自动让位（见 chatbar.gd）。她的回话仍然会同时出现在这里和她头顶。
 ##
 ## 数据不另存一份，直接读 ContextManager —— 那本来就是发给模型的那份对话历史，
-## 界面上看到的和模型看到的因此永远一致。也就是说这里显示的就是她「记得」的内容：
-## 点了「重新开始」之后记录清空，正是因为她真的不记得了。
+## 所以界面上看到的和模型记得的永远一致。左上角那个扫把清空之后记录会空，
+## 正是因为她真的不记得了。
 ##
-## 只在打开时和每轮对话结束后重建，不做流式增量追加 —— 逐字冒出来的效果由气泡负责，
-## 记录窗口要的是稳定可读。
+## 版式仿微信：她的话靠左并配圆头像，人的话靠右不配头像。两边气泡用同一份样式 ——
+## 区分靠位置和头像，不靠颜色，这样配色上不会花。
 
-## 正文字色。比说话人那行的灰（LabelItem，0.64）更深，好让正文成为视觉重点。
+const BUBBLE_STYLE := preload("res://themes/pink_bubble.tres")
+const AVATAR := preload("res://images/ui/avatar_doro.png")
+
+## 气泡最多占内容区宽度的这个比例。短句会自己收窄，只有长句才铺到上限再换行。
+const BUBBLE_MAX_RATIO := 0.66
+const AVATAR_SIZE := 34.0
+
+## 正文字色。settings 主题里 Label 的默认字色是纯白（那是给粉色标题栏用的），
+## 气泡底是浅色，不显式指定就是白字压浅底、等于隐形。
 const BODY_COLOR := Color(0.28, 0.28, 0.3)
-
-const ROLE_LABEL := {
-	&"user": "人",
-	&"assistant": "Doro",
-	&"system": "设定",
-}
+const HINT_COLOR := Color(0.62, 0.55, 0.58)
 
 @onready var _entries: VBoxContainer = $VBoxContainer/ScrollContainer/Entries
 @onready var _scroll: ScrollContainer = $VBoxContainer/ScrollContainer
 @onready var _empty_hint: Label = $VBoxContainer/ScrollContainer/Entries/EmptyHint
-@onready var _restart_btn: Button = $VBoxContainer/Footer/RestartButton
+@onready var _broom: Button = $VBoxContainer/TitleBar/MarginContainer/HBoxContainer/BroomButton
+@onready var _input: LineEdit = $VBoxContainer/InputRow/LineEdit
+@onready var _send_btn: Button = $VBoxContainer/InputRow/SendButton
 @onready var _context: ContextManager = get_node("/root/Node2D/OpenAIChatClient/ContextManager")
+@onready var _chatbar = get_node("/root/Node2D/GUI/Chatbar")
 
 func _ready() -> void:
-	_restart_btn.pressed.connect(_on_restart_pressed)
+	_empty_hint.add_theme_color_override("font_color", HINT_COLOR)
+	_broom.pressed.connect(_on_broom_pressed)
+	_send_btn.pressed.connect(_on_send_pressed)
+	_input.text_submitted.connect(_on_text_submitted)
 	refresh()
+
+func _on_text_submitted(_t: String) -> void:
+	_on_send_pressed()
 
 func refresh() -> void:
 	for child in _entries.get_children():
@@ -39,7 +51,6 @@ func refresh() -> void:
 
 	var history: Array = _context.get_context()
 	_empty_hint.visible = history.is_empty()
-	_empty_hint.add_theme_color_override("font_color", BODY_COLOR)
 
 	for entry in history:
 		if not entry is Dictionary:
@@ -48,39 +59,97 @@ func refresh() -> void:
 		var role := StringName(entry.get("role", ""))
 		if role == &"system":
 			continue
-		_entries.add_child(_make_entry(role, String(entry.get("content", ""))))
+		_entries.add_child(_make_row(role == &"assistant", String(entry.get("content", ""))))
 
 	# 等一帧让容器算完布局，否则滚动条的最大值还是旧的，滚不到底
 	await get_tree().process_frame
 	if is_inside_tree():
 		_scroll.scroll_vertical = int(_scroll.get_v_scroll_bar().max_value)
 
-func _make_entry(role: StringName, content: String) -> Control:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 2)
+## 一行消息：她的靠左带头像，人的靠右。
+func _make_row(from_doro: bool, content: String) -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
-	# 字色必须显式指定。settings 主题里 Label 的默认字色是纯白（那是给粉色标题栏用的），
-	# 而面板底色很浅 —— 不设的话正文就是白字压浅底，等于隐形。主题里可用的
-	# LabelItem 是 0.64 的灰，适合当次要文字，正文得更深一点才立得住。
-	var who := Label.new()
-	who.text = ROLE_LABEL.get(role, String(role))
-	who.theme_type_variation = &"LabelItem"
-	who.add_theme_font_size_override("font_size", 12)
-	box.add_child(who)
+	var bubble := _make_bubble(content)
+	if from_doro:
+		row.add_child(_make_avatar())
+		row.add_child(bubble)
+		row.add_child(_make_spacer())
+	else:
+		row.add_child(_make_spacer())
+		row.add_child(bubble)
+		# 人这一侧不放头像（按要求），但留一个同宽的空位占住，
+		# 这样两侧气泡到窗口边缘的距离一致，看起来才齐。
+		var pad := Control.new()
+		pad.custom_minimum_size = Vector2(AVATAR_SIZE, 0)
+		row.add_child(pad)
+	return row
 
-	var body := Label.new()
-	body.text = content
-	body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	body.add_theme_color_override("font_color", BODY_COLOR)
-	box.add_child(body)
+func _make_avatar() -> Control:
+	var tex := TextureRect.new()
+	tex.texture = AVATAR
+	tex.custom_minimum_size = Vector2(AVATAR_SIZE, AVATAR_SIZE)
+	tex.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tex.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	# 顶部对齐：气泡长的时候头像该贴在第一行旁边，而不是浮到中间
+	tex.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+	return tex
 
-	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 8)
-	box.add_child(gap)
-	return box
+func _make_spacer() -> Control:
+	var c := Control.new()
+	c.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return c
 
-## 「重新开始」放在这里而不是只放在聊天栏：清空之前能先看一眼聊了什么再决定。
-func _on_restart_pressed() -> void:
+func _make_bubble(content: String) -> Control:
+	var panel := PanelContainer.new()
+	panel.add_theme_stylebox_override("panel", BUBBLE_STYLE)
+	panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+
+	var margin := MarginContainer.new()
+	margin.add_theme_constant_override("margin_left", 10)
+	margin.add_theme_constant_override("margin_right", 10)
+	margin.add_theme_constant_override("margin_top", 6)
+	margin.add_theme_constant_override("margin_bottom", 6)
+	panel.add_child(margin)
+
+	var label := Label.new()
+	label.text = content
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	label.add_theme_color_override("font_color", BODY_COLOR)
+	margin.add_child(label)
+
+	_clamp_label_width(label, content)
+	return panel
+
+## 气泡宽度：短句自然收窄，长句到上限就换行。
+##
+## Godot 的容器没有 max_width，所以自己量：用字体算出整段文字排成一行要多宽，和上限
+## 取小。不这么做只有两条路 —— 要么气泡永远铺满一整行（短句也占满，很丑），
+## 要么长句一路撑到窗口外面去。
+func _clamp_label_width(label: Label, content: String) -> void:
+	var font := label.get_theme_font("font")
+	if font == null:
+		return
+	var font_size := label.get_theme_font_size("font_size")
+	var one_line := font.get_string_size(
+			content, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x
+	# 内容区宽度：窗口宽减去头像、占位和两侧留白
+	var avail := maxf(120.0, size.x - AVATAR_SIZE * 2.0 - 40.0)
+	label.custom_minimum_size.x = minf(one_line, avail * BUBBLE_MAX_RATIO)
+
+## 左上角那个扫把。放在这里而不是聊天栏：清空之前能先看一眼聊了什么再决定，
+## 而且聊天栏省下的位置正好留给输入框。
+func _on_broom_pressed() -> void:
 	_context.clear_context()
 	refresh()
+
+## 发送。复用 chatbar 那一整套流程（配置检查、上下文、溢出重试、头顶气泡），
+## 不在这里重写一遍 —— 两个入口共用同一条路，行为才不会分叉。
+func _on_send_pressed() -> void:
+	var text := _input.text
+	if text.strip_edges().is_empty():
+		return
+	if _chatbar.send_text(text):
+		_input.clear()

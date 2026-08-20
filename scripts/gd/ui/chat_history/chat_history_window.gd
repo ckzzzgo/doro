@@ -5,10 +5,10 @@ extends Window
 ## 入口是聊天栏最左边那个按钮 —— 它本来就带着图标和「打开聊天窗口」的提示，
 ## 但一直没接任何东西，是个死按钮。这里把它接上。
 
-@onready var _panel = $NinePatchRect
+@onready var _panel = $Root
 
 func _ready() -> void:
-	$"NinePatchRect/VBoxContainer/TitleBar/MarginContainer/HBoxContainer/CloseButton".pressed.connect(_on_close_pressed)
+	$"Root/VBoxContainer/TitleBar/MarginContainer/HBoxContainer/CloseButton".pressed.connect(_on_close_pressed)
 
 func toggle() -> void:
 	if visible:

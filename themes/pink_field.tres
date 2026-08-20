@@ -1,17 +1,21 @@
 [gd_resource type="StyleBoxFlat" format=3]
 
-; 输入框专用：比面板底色再深一点，读起来才像「一个可以往里打字的凹槽」，
-; 而不是面板上一块没边界的白。边框比面板细（1px）、圆角比面板小（8），
-; 层级上从属于面板。
+; 输入框样式。
+;
+; 原先是四边都有 1px 边框、底色也比面板深一档，结果在输入栏里像是「面板上又抠出一个
+; 小框」，多余且难看 —— 输入栏本身已经是个框了，里面不需要再套一层。
+;
+; 现在只留左右两条淡竖线当边界：既能看出"这段是可以打字的区域"，又不会形成第二个框。
+; 底色跟面板保持一致（不再加深），完全靠那两条线区分。
 
 [resource]
-bg_color = Color(1, 0.913725, 0.941176, 1)
+bg_color = Color(1, 0.949020, 0.964706, 1)
 border_width_left = 1
-border_width_top = 1
+border_width_top = 0
 border_width_right = 1
-border_width_bottom = 1
-border_color = Color(0.862745, 0.654902, 0.698039, 1)
-corner_radius_top_left = 8
-corner_radius_top_right = 8
-corner_radius_bottom_right = 8
-corner_radius_bottom_left = 8
+border_width_bottom = 0
+border_color = Color(0.929412, 0.807843, 0.843137, 1)
+corner_radius_top_left = 0
+corner_radius_top_right = 0
+corner_radius_bottom_right = 0
+corner_radius_bottom_left = 0
