@@ -1,12 +1,15 @@
 [gd_resource type="StyleBoxFlat" format=3]
 
-; DORO 窗口底部的输入框：白底 + 一圈淡边 + 圆角。
+; DORO 窗口底部的输入框：白底 + 一圈淡边 + 胶囊圆角。
 ;
-; 这里和聊天栏那个相反 —— 它需要被看见。之前用了和面板一样的粉色，
-; 结果整条输入区糊在面板里，谁都看不出哪儿能打字。白底才立得起来。
-; 圆角 15 配 30px 高，正好是个胶囊形，和微信输入框的观感接近。
+; content_margin 是必须的：圆角 15 意味着左右各有 15px 是弧线，文字若从 x=0 开始排，
+; 会直接压在弧线上甚至探出去（用户反馈的"文字穿模"）。左右各留 14px 让文字待在直边区域内。
 
 [resource]
+content_margin_left = 14.0
+content_margin_top = 4.0
+content_margin_right = 14.0
+content_margin_bottom = 4.0
 bg_color = Color(1, 1, 1, 1)
 border_width_left = 1
 border_width_top = 1
