@@ -14,6 +14,28 @@ extends Node
 const VERSION_URL := "https://raw.githubusercontent.com/ckzzzgo/dororo-release/main/version.json"
 const RELEASES_URL := "https://github.com/ckzzzgo/dororo-release/releases/latest"
 
+## 检查更新的网络超时。
+##
+## Godot 的 HTTPRequest 默认 timeout = 0，意思是「永不超时」。请求一旦挂住
+## —— 不是被拒绝，而是握手包丢进黑洞没人回 —— request_completed 就永远不触发，
+## 界面死在「正在检查更新……」上。用户看到的是无限转圈，分不清程序卡死还是网络慢。
+## 这不是理论问题，是用户实际反馈过的现象。
+##
+## 为什么直连必然挂住：HTTPRequest 既不读 Windows 系统代理，也不读 HTTP_PROXY
+## 环境变量。梯子若只开「系统代理」模式，本程序全程直连 raw.githubusercontent.com，
+## 等于没挂梯子；只有 TUN / 增强模式（在网卡层接管流量）才对本程序生效。
+## 所以「明明挂了梯子却检查不到」是必然结果，不是偶发。
+##
+## 修不了可达性，至少要让它失败得明确：10 秒后收工，把原因和退路一起告诉用户。
+const CHECK_TIMEOUT_SEC := 10.0
+
+## 下载卡死的判定阈值：多久没收到任何新字节就认为断了。
+##
+## 这里不能用 HTTPRequest.timeout —— 那是整个请求的时限，而安装包 100MB+，
+## 慢网用户正常下十几分钟，固定时限会把他们误杀。改成盯「有没有进度」：
+## 只要字节数还在涨就一直等，彻底不动了才判失败。
+const DL_STALL_SEC := 30.0
+
 const MSG_PATH := "NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/Message"
 const JUMP_PATH := "NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer/JumpButton"
 const UPDATE_PATH := "NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer/UpdateButton"
@@ -36,6 +58,10 @@ var _busy := false
 ## 「100%」，以为卡死了。
 var _downloading := false
 
+## 停滞检测用：上次见到的已下载字节数，和距上次增长过了多久
+var _dl_last_bytes := 0
+var _dl_stall := 0.0
+
 func _ready() -> void:
 	get_node("NinePatchRect/VBoxContainer/TitleBar").set_close_button_visibility(false)
 	http_request = HTTPRequest.new()
@@ -52,13 +78,20 @@ func check_for_updates() -> void:
 	# 那样回调永远不会被调用，界面会一直停在初始文案上。
 	http_request.request_completed.connect(_on_request_completed)
 
+	# 必须在 request() 之前设置，本次请求才受这个时限约束
+	http_request.timeout = CHECK_TIMEOUT_SEC
+
 	var error := http_request.request(VERSION_URL)
 	if error != OK:
 		_msg("检查更新失败：无法发起网络请求（错误码 %d）" % error)
 
 func _on_request_completed(result: int, response_code: int, _headers, body: PackedByteArray) -> void:
+	if result == HTTPRequest.RESULT_TIMEOUT:
+		_offline("连不上 GitHub：等了 %d 秒没有任何回应。" % int(CHECK_TIMEOUT_SEC))
+		return
+
 	if result != HTTPRequest.RESULT_SUCCESS:
-		_msg("检查更新失败：连接不上服务器，请检查网络。")
+		_offline("连不上 GitHub：网络错误（代码 %d）。" % result)
 		return
 
 	if response_code == 429:
@@ -86,6 +119,17 @@ func _on_request_completed(result: int, response_code: int, _headers, body: Pack
 			get_node(UPDATE_PATH).show()
 	else:
 		_msg("已是最新版本 v%s" % current)
+
+## 网络到不了时的统一出口。
+##
+## 原来只说「请检查网络」，这句话对用户毫无用处 —— 他的网络通常好得很，能上网页、
+## 能上微信，只是这一个域名连不上。他会去重启路由器，然后回来骂程序坏了。
+## 所以这里必须给三样东西：到底哪一步不通、他自己能动手的办法、以及一条不依赖
+## 网络自动化的退路（手动下载）。
+func _offline(reason: String) -> void:
+	_msg("%s\n有梯子的话需要开 TUN / 增强模式，\n只设系统代理对本程序无效。\n也可以手动下载新版。" % reason)
+	# 自动更新走不通时把跳转按钮放出来，否则用户看着一条报错无路可走
+	get_node(JUMP_PATH).show()
 
 ## 逐段比较版本号。两边都容忍 v 前缀，段数不同时缺的按 0 算
 ## （这样 1.0 与 1.0.0 视为相同，而 1.0.1 比 1.0 新）。
@@ -150,15 +194,31 @@ func _on_update_button_pressed() -> void:
 
 	_msg("正在下载新版本……")
 	_downloading = true
+	_dl_last_bytes = 0
+	_dl_stall = 0.0
 	var err := _dl.request(str(pkg["url"]))
 	if err != OK:
 		_downloading = false
 		_fail("下载没能开始（错误码 %d）。" % err)
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
 	if not _downloading or _dl == null:
 		return
+
 	var got := _dl.get_downloaded_bytes()
+
+	# 卡死判定。连接阶段 got 还是 0，这段时间同样计入 —— 「一直连不上」和
+	# 「下到一半断了」对用户是同一件事：界面不动了。两者都该有个说法，
+	# 而不是让「正在下载新版本……」停在那里过夜。
+	if got > _dl_last_bytes:
+		_dl_last_bytes = got
+		_dl_stall = 0.0
+	else:
+		_dl_stall += delta
+		if _dl_stall >= DL_STALL_SEC:
+			_fail("下载卡住了：%d 秒没有任何进度。\n换个网络再试，或手动下载新版。" % int(DL_STALL_SEC))
+			return
+
 	if got <= 0:
 		return
 	var total := _dl.get_body_size()
@@ -224,6 +284,9 @@ func _fail(text: String) -> void:
 	get_node(UPDATE_PATH).disabled = false
 	get_node(JUMP_PATH).show()
 	if _dl:
+		# 先显式取消，再释放。卡死那条路径上请求还挂着，
+		# 只 queue_free 依赖析构去断连接，不如自己断干净。
+		_dl.cancel_request()
 		_dl.queue_free()
 		_dl = null
 
