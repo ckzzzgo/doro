@@ -1,54 +1,33 @@
 @echo off
 setlocal
 
-rem  本地试跑 Doro：直接用 Godot 跑项目源码，不打包。
+rem  本地试跑 Doro。逻辑在同目录的 run_local.ps1 里，这里只负责把它拉起来。
 rem
-rem  完整导出一次要 10 分钟，改一行 GDScript 想看效果不该等那么久；这条路十几秒出画面。
-rem
-rem  和正式安装包的区别只有两条：
-rem    1. debug 构建，控制台会多打一些 [DORO] 调试日志，release 版是静音的
-rem    2. 走项目源码而不是 pck，改完存盘直接再点一次就是新的
-rem  配置文件是同一个，API Key、缩放、位置这些和正式版共用，不用重填。
+rem  默认跑【打好的包】，也就是用户下载到的那个东西 —— 跑源码和跑包不是同一回事，
+rem  1.4.1 就是栽在这上面（源码走 Vulkan 正常，包走 OpenGL 全黑）。
+rem  如果你的代码比包新，脚本会拦住问一句，不会默默让你测一个旧包。
 rem
 rem  本文件必须是 GBK 编码 + CRLF 换行：cmd.exe 按系统代码页读脚本，
-rem  存 UTF-8 会把中文注释从中间截断，换成 LF 会让 if() 块解析出错。两个坑都踩过。
+rem  存成 UTF-8 会让中文注释从中间截断，换成 LF 会让 if() 块解析错乱。
 
-set "REPO=%~dp0.."
-set "GODOT=%USERPROFILE%\Desktop\Godot_v4.4.1_mono\Godot_v4.4.1-stable_mono_win64\Godot_v4.4.1-stable_mono_win64_console.exe"
-set "DOTNET=C:\Program Files\dotnet"
+set "PS=%~dp0run_local.ps1"
 
-if not exist "%GODOT%" (
-  echo [X] 找不到 Godot:
-  echo     %GODOT%
+if not exist "%PS%" (
+  echo [X] 找不到 run_local.ps1:
+  echo     %PS%
   pause
   exit /b 1
 )
 
-if not exist "%REPO%\project.godot" (
-  echo [X] 找不到 project.godot，这里不像是项目目录:
-  echo     %REPO%
-  pause
-  exit /b 1
-)
-
-set "PATH=%DOTNET%;%PATH%"
-
-echo [1/2] 编译 C# ...
-cd /d "%REPO%"
-dotnet build -v quiet -nologo
+where pwsh >nul 2>&1
 if errorlevel 1 (
-  echo.
-  echo [X] C# 编译失败，看上面的错误
+  echo [X] 找不到 pwsh（PowerShell 7）。
+  echo     装一个，或者直接用 Godot 打开项目跑。
   pause
   exit /b 1
 )
 
-echo [2/2] 启动 Doro ...
-echo.
-echo     关掉这个黑窗口就等于退出 Doro
-echo.
-"%GODOT%" --path .
+pwsh -NoProfile -ExecutionPolicy Bypass -File "%PS%" %*
 
 echo.
-echo Doro 已退出。
 pause
