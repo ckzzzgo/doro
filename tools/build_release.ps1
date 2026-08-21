@@ -312,37 +312,87 @@ Ok ("图标已写入（$($before.Substring(0,8)) -> $($after.Substring(0,8))）"
 # 读引擎自己打出来的那行驱动信息。日志在用户目录，导出版默认就会写。
 Step "实跑一次，确认渲染器"
 
-$expectRenderer = 'Vulkan'
-$logDir = Join-Path $env:APPDATA "Godot\app_userdata\Dororo\logs"
-$before2 = @()
-if (Test-Path $logDir) { $before2 = (Get-ChildItem $logDir -Filter *.log).Name }
+# 期望 D3D12。1.4.2 之后拿到了用户机器上的实测数据：Vulkan 在混合显卡笔记本
+# （Intel 集显输出 + NVIDIA 独显渲染）上做不出窗口透明，整个窗口是黑底；
+# D3D12 在同一台机器上正常。详见 project.godot 里 driver.windows 那段注释。
+$expectRenderer = 'D3D12'
 
-# 不带任何参数 —— 必须和用户双击 exe 的情形完全一致
+# 画法也必须验。这次就是驱动对了、画法没对：给用户验证的是 D3D12+Forward+，
+# 而项目配置要发的是 D3D12+Forward Mobile —— 两套不同的东西，只查驱动的守卫
+# 完全拦不住。（后来让用户把 Forward Mobile 也验了一遍，是好的。）
+#
+# 期望值从 project.godot 现读，不写死在这里：写死会冒出第二种错配 ——
+# 配置改了而守卫忘了跟着改，于是守卫盖章通过一个它压根没在检查的东西。
+$mLine = Select-String -Path "project.godot" -Pattern '^renderer/rendering_method="(.+)"' | Select-Object -First 1
+if (-not $mLine) { Fail "无法从 project.godot 读取 renderer/rendering_method" }
+$methodSetting = $mLine.Matches[0].Groups[1].Value
+$expectMethod = switch ($methodSetting) {
+    'mobile'           { 'Forward Mobile' }
+    'forward_plus'     { 'Forward+' }
+    'gl_compatibility' { 'Compatibility' }
+}
+if (-not $expectMethod) { Fail "project.godot 里的 rendering_method 认不出来：$methodSetting" }
+Info "期望渲染路径：$expectRenderer / $expectMethod（画法读自 project.godot）"
+$logDir = Join-Path $env:APPDATA "Godot\app_userdata\Dororo\logs"
+$curLog = Join-Path $logDir "godot.log"
+
+# 启动前先把当前日志删掉。
+#
+# 不删有个漏洞：万一这个包压根跑不起来，Godot 不会重建 godot.log，守卫读到的
+# 就是【上一次运行】留下的内容 —— 那可能恰好是正确的渲染器，于是守卫盖章通过
+# 一个连启动都启动不了的包。这和它原来「读运行后新出现的那个文件」是同一类
+# 错误：验证了一个不是本次产物的东西。删掉之后，「没有日志」就明确等于
+# 「这个包没跑起来」，不会再有含糊。
+if (Test-Path $curLog) { Remove-Item $curLog -Force }
+
+# 不带任何参数 —— 必须和用户双击 exe 的情形完全一致。
+# 加 --rendering-driver 之类的参数会连 rendering_method 一起换掉（实测传 vulkan
+# 会把 Forward Mobile 变成 Forward+），那就不是用户跑的那一套了 —— 而「测的和
+# 用户跑的不是同一套」正是这道守卫要防的事，不能在守卫自己身上再犯一次。
 $proc = Start-Process -FilePath $targetExe -PassThru
 Start-Sleep -Seconds 15
-$newLog = $null
-if (Test-Path $logDir) {
-    $newLog = Get-ChildItem $logDir -Filter *.log |
-        Where-Object { $before2 -notcontains $_.Name } |
-        Sort-Object LastWriteTime -Descending | Select-Object -First 1
-}
 if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
 Stop-Process -Name dororo -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 1
 
-if (-not $newLog) {
-    Fail "跑起来了但没找到新日志，无法确认渲染器。`n     日志目录：$logDir"
+# 本次运行的日志永远是 godot.log。
+#
+# 这里原来找的是「运行后新出现的那个 .log」，那是错的：Godot 启动时会把【上一次】
+# 的 godot.log 改名成 godot<时间戳>.log 存档，再新建 godot.log 写本次。所以
+# 「新出现的文件」装的恰恰是上一轮的内容 —— 守卫读到的是上次运行的渲染器，
+# 这一版打的包压根没被检查过。实测确认：本次运行是 Vulkan，而那个「新出现的
+# 文件」里连驱动行都没有（那是上一次 --headless 跑剩下的）。
+# 它至今没报警纯属侥幸，恰好上一轮也是 Vulkan 而已。
+if (-not (Test-Path $curLog)) {
+    Fail ("跑完了但日志没有被重建，说明这个包没能启动起来。`n" +
+          "     期望文件：$curLog")
 }
-$lines = Get-Content $newLog.FullName -TotalCount 2
-if ($lines.Count -lt 2) { Fail "日志太短，读不到驱动信息行：$($newLog.FullName)" }
-$driverLine = $lines[1]
-if ($driverLine -notmatch $expectRenderer) {
-    Fail ("打好的包实际用的渲染器不对。`n" +
+
+# 驱动信息也不一定在第 2 行 —— Live2D 插件的初始化警告会插进来把它顶下去。
+# 按内容找，不按行号找。
+$driverMatch = Get-Content $curLog | Select-String 'Vulkan|OpenGL|D3D12|Direct3D' | Select-Object -First 1
+if (-not $driverMatch) {
+    Fail ("日志里找不到驱动信息行，无法确认渲染器。`n" +
+          "     日志：$curLog`n" +
+          "     这个包可能压根没启动起来。")
+}
+$driverLine = $driverMatch.Line.Trim()
+if ($driverLine -notmatch [regex]::Escape($expectRenderer)) {
+    Fail ("打好的包实际用的【驱动】不对。`n" +
           "     期望包含：$expectRenderer`n" +
           "     实际是：  $driverLine`n" +
-          "     窗口透明在非 Vulkan 路径上依赖驱动，发出去多半是一块黑底。`n" +
-          "     检查 project.godot 的 config/features 与 rendering_method 是否一致。")
+          "     用户机器实测：Vulkan 整块黑底，D3D12 正常（Intel 集显输出 +`n" +
+          "     NVIDIA 独显渲染的笔记本）。驱动发错就是一块黑底。`n" +
+          "     检查 project.godot 的 rendering_device/driver.windows。")
 }
-Ok ("渲染器正确：$driverLine")
+if ($driverLine -notmatch [regex]::Escape($expectMethod)) {
+    Fail ("驱动对了，但【画法】不对。`n" +
+          "     期望包含：$expectMethod   （读自 project.godot 的 rendering_method）`n" +
+          "     实际是：  $driverLine`n" +
+          "     驱动和画法是分开设的，能各自错配。而 config/features 里的渲染器`n" +
+          "     标签会覆盖 rendering_method —— 1.4.1 的黑底就是这么来的。")
+}
+Ok ("渲染路径正确：$driverLine")
 
 # ------------------------------------------------------------------ 打包
 
