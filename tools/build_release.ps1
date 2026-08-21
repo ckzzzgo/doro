@@ -295,6 +295,55 @@ if ($before -eq $after) {
 }
 Ok ("图标已写入（$($before.Substring(0,8)) -> $($after.Substring(0,8))）")
 
+# ------------------------------------------------------- 实跑一次，验渲染器
+
+# 这一步是踩了坑才加的，说清楚为什么值得花 20 秒：
+#
+# 桌宠的整个视觉前提是「窗口逐像素透明」。它在 Vulkan 路径上正常，在 OpenGL
+# 路径上则依赖驱动 —— NVIDIA 上能用，别的卡上整个窗口会变成不透明黑底，
+# 也就是用户看到的「一块黑方块里画着 doro」。
+#
+# 而这两者可以静默错配：project.godot 里 rendering_method 写的是 mobile，
+# 但导出版实际按 config/features 里的渲染器标签走。1.4.1 就是这么发出去的 ——
+# 本机跑源码是 Vulkan，一切正常；用户下载的包是 OpenGL，全黑。
+# 我们测的从来不是他们跑的那一套，所以本机怎么测都测不出来。
+#
+# 「导出成功」这句话对此毫无保证，唯一靠得住的办法是把包真的跑起来，
+# 读引擎自己打出来的那行驱动信息。日志在用户目录，导出版默认就会写。
+Step "实跑一次，确认渲染器"
+
+$expectRenderer = 'Vulkan'
+$logDir = Join-Path $env:APPDATA "Godot\app_userdata\Dororo\logs"
+$before2 = @()
+if (Test-Path $logDir) { $before2 = (Get-ChildItem $logDir -Filter *.log).Name }
+
+# 不带任何参数 —— 必须和用户双击 exe 的情形完全一致
+$proc = Start-Process -FilePath $targetExe -PassThru
+Start-Sleep -Seconds 15
+$newLog = $null
+if (Test-Path $logDir) {
+    $newLog = Get-ChildItem $logDir -Filter *.log |
+        Where-Object { $before2 -notcontains $_.Name } |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+}
+if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+Stop-Process -Name dororo -Force -ErrorAction SilentlyContinue
+
+if (-not $newLog) {
+    Fail "跑起来了但没找到新日志，无法确认渲染器。`n     日志目录：$logDir"
+}
+$lines = Get-Content $newLog.FullName -TotalCount 2
+if ($lines.Count -lt 2) { Fail "日志太短，读不到驱动信息行：$($newLog.FullName)" }
+$driverLine = $lines[1]
+if ($driverLine -notmatch $expectRenderer) {
+    Fail ("打好的包实际用的渲染器不对。`n" +
+          "     期望包含：$expectRenderer`n" +
+          "     实际是：  $driverLine`n" +
+          "     窗口透明在非 Vulkan 路径上依赖驱动，发出去多半是一块黑底。`n" +
+          "     检查 project.godot 的 config/features 与 rendering_method 是否一致。")
+}
+Ok ("渲染器正确：$driverLine")
+
 # ------------------------------------------------------------------ 打包
 
 if ($SkipZip) {
