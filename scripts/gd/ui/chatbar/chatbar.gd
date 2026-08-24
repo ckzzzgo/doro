@@ -14,6 +14,7 @@ extends Panel
 @export var chat_dialog: Window
 
 @onready var _config: ConfigManager = get_node("/root/Config")
+@onready var _window_manager = get_node_or_null("/root/WindowManager")
 
 ## 上一句发出去的话。撞上上下文上限时要用它重发一次。
 var _last_sent: String = ""
@@ -32,6 +33,39 @@ func _ready() -> void:
 	chat_client.on_context_overflow.connect(_on_context_overflow)
 	chat_client.on_api_error.connect(_on_api_error)
 	chat_client.on_thinking.connect(_on_thinking)
+	line_edit.gui_input.connect(_on_line_edit_gui_input)
+
+## 把键盘焦点交给输入框，交之前先主动把主窗口拿到前台。
+##
+## 为什么需要这一步：主窗口开了 display/window/size/no_focus。不开的话，任务栏上会
+## 冒出一个一直橙色高亮的 doro 按钮 —— 开机自启动时必现，而且事后清不掉（DeleteTab、
+## hide/show、设 owner、FlashWindowEx(STOP)、强制激活，五种手段全试过，一个都不管用，
+## 因为那个状态是窗口创建那一刻就打上的）。
+##
+## 代价是窗口不会再因为用户点击而自动获得键盘焦点，输入框打不了字。但
+## WS_EX_NOACTIVATE 只挡「点击自动激活」，不挡程序主动激活，所以在用户明确要打字的
+## 时刻要一次前台就行。
+##
+## 这不会让她出现在任务栏：任务栏可见性由扩展样式里的 WS_EX_NOACTIVATE 决定，
+## 而那个样式一直都在，跟当前谁是前台窗口无关。
+func focus_input() -> void:
+	# 不能用 DisplayServer.window_move_to_foreground()：实测它对开了 no_focus 的
+	# 主窗口不起作用，输入框照样打不了字。走 WindowManager 里的 Win32 调用。
+	if _window_manager != null:
+		_window_manager.FocusMainWindow()
+	line_edit.grab_focus()
+
+## 聊天栏已经开着、但焦点被别的程序拿走的情况（用户中间去点了浏览器再点回来）。
+## 那时候光点输入框也拿不到焦点，得再要一次。
+##
+## 这里刻意不判断 line_edit.has_focus()：那是 Godot 内部的 UI 焦点，和 OS 的窗口
+## 焦点是两码事。用户切去别的程序再回来，Godot 这边仍然认为输入框有焦点，
+## 加了判断反而正好挡掉唯一真正需要要回焦点的那一次 —— 实测就是「切任何东西
+## 回来都不能继续打字」。
+## SetForegroundWindow 对已经是前台的窗口是空操作，每次点都要一遍没有代价。
+func _on_line_edit_gui_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		focus_input()
 
 func _on_send_button_pressed():
 	if send_text(line_edit.get_text()):

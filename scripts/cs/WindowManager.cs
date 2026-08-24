@@ -16,6 +16,10 @@ public partial class WindowManager : Node
 
 	[DllImport("user32.dll")]
 	[return: MarshalAs(UnmanagedType.Bool)]
+	private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+	[DllImport("user32.dll")]
+	[return: MarshalAs(UnmanagedType.Bool)]
 	private static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
 	[DllImport("user32.dll")]
@@ -69,6 +73,47 @@ public partial class WindowManager : Node
 		InitializeWindowStyle();
 	}
 
+	/// 给窗口补上 TOOLWINDOW，让它不出现在任务栏。
+	///
+	/// 注意这只管住「以后」：按钮是窗口创建那一刻登记的，登记之后再改扩展样式
+	/// 赶不走它。真正让按钮压根不出现的是 project.godot 里的 no_focus
+	/// （窗口创建时就带上 WS_EX_NOACTIVATE）。这里是给子窗口用的 —— 它们由
+	/// Godot 懒创建，创建时机在项目设置管不到的地方，只能创建后补。
+	///
+	/// 事后摘除的手段全试过、全无效，别再往这里加：
+	///   ITaskbarList.DeleteTab   本机 CLSID 未注册（REGDB_E_CLASSNOTREG）
+	///   ShowWindow hide/show     按钮不动
+	///   设 owner (GWLP_HWNDPARENT) 按钮不动
+	///   FlashWindowEx(FLASHW_STOP) 高亮不消
+	///   SetForegroundWindow      高亮不消
+	private void SetToolWindowStyle(IntPtr h)
+	{
+		if (h == IntPtr.Zero) return;
+		long style = GetWindowLongPtr(h, GwlExStyle).ToInt64();
+		SetWindowLongPtr(h, GwlExStyle, new IntPtr((style | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW));
+	}
+
+	/// 主动把主窗口拿到前台，让输入框能接收键盘。
+	///
+	/// 为什么需要：主窗口开了 display/window/size/no_focus（WS_EX_NOACTIVATE）——
+	/// 不开的话任务栏上会冒出一个一直橙色高亮的按钮，开机自启动时必现且事后清不掉。
+	/// 代价是窗口不会因为用户点击而自动获得键盘焦点，聊天输入框打不了字。
+	///
+	/// 为什么不用 Godot 的 DisplayServer.window_move_to_foreground()：实测对这个窗口
+	/// 不起作用，输入框照样打不了字。而 Win32 的 SetForegroundWindow 对同一个窗口是
+	/// 有效的（实测返回 true，前台窗口确实变成了她）—— NOACTIVATE 只挡「点击自动
+	/// 激活」，不挡程序主动激活，是那个 API 的实现不给力。
+	///
+	/// 这不会让她出现在任务栏：任务栏可见性由扩展样式决定，跟当前谁是前台窗口无关。
+	public void FocusMainWindow()
+	{
+		if (_hWnd == IntPtr.Zero) return;
+		if (!SetForegroundWindow(_hWnd))
+		{
+			GD.PushWarning("SetForegroundWindow 失败，输入框可能仍然打不了字");
+		}
+	}
+
 	private void InitializeWindowStyle()
 	{
 		long currentStyle = GetWindowLongPtr(_hWnd, GwlExStyle).ToInt64();
@@ -83,23 +128,6 @@ public partial class WindowManager : Node
 		long newStyle = (currentStyle | WsExLayered | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW;
 		SetWindowLongPtr(_hWnd, GwlExStyle, new IntPtr(newStyle));
 	}
-
-	// ITaskbarList：把窗口从任务栏摘掉的官方接口。只用到 HrInit 和 DeleteTab，
-	// 但接口方法必须按 vtable 顺序声明齐 —— 少一个或调换顺序就会调到错误的函数。
-	[ComImport, Guid("56FDF344-FD6D-11d0-958A-006097C9A090")]
-	[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-	private interface ITaskbarList
-	{
-		void HrInit();
-		void AddTab(IntPtr hwnd);
-		void DeleteTab(IntPtr hwnd);
-		void ActivateTab(IntPtr hwnd);
-		void SetActiveAlt(IntPtr hwnd);
-	}
-
-	[ComImport, Guid("56FDF342-FD6D-11d0-958A-006097C9A090")]
-	[ClassInterface(ClassInterfaceType.None)]
-	private class CTaskbarList { }
 
 	/// 让一个子窗口不在任务栏留按钮。
 	///
@@ -133,23 +161,7 @@ public partial class WindowManager : Node
 				return;
 			}
 
-			long style = GetWindowLongPtr(h, GwlExStyle).ToInt64();
-			SetWindowLongPtr(h, GwlExStyle, new IntPtr((style | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW));
-
-			// 光改样式赶不走已经登记上的按钮，这是 Win32 的既定行为 —— 得 hide/show
-			// 一次才会刷新，而那会让窗口明显闪一下。DeleteTab 是官方给的显式摘除
-			// 接口，不用闪。
-			try
-			{
-				var list = (ITaskbarList)new CTaskbarList();
-				list.HrInit();
-				list.DeleteTab(h);
-				Marshal.ReleaseComObject(list);
-			}
-			catch (Exception e)
-			{
-				GD.PushWarning($"从任务栏摘除 {w.Name} 失败：{e.Message}");
-			}
+			SetToolWindowStyle(h);
 		}
 
 		w.VisibilityChanged += Fix;
