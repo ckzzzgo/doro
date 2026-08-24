@@ -72,8 +72,92 @@ public partial class WindowManager : Node
 	private void InitializeWindowStyle()
 	{
 		long currentStyle = GetWindowLongPtr(_hWnd, GwlExStyle).ToInt64();
-		long newStyle = currentStyle | WsExLayered;
+
+		// TOOLWINDOW 必须在这里就设上，不能等第一次 SetClickThrough。
+		//
+		// 任务栏按钮是窗口创建时登记的，而登记之后再改扩展样式并不会让按钮消失
+		// （Win32 的既定行为，得 hide/show 一次才刷新）。原来这里只设 LAYERED，
+		// TOOLWINDOW 要等鼠标第一次移进或移出桌宠才由 SetClickThrough 补上 ——
+		// 那之间是一段谁都没管的竞态窗口：用户启动后没碰她，她就可能一直挂在
+		// 任务栏上。这台开发机上复现不出来，但复现不出来不等于别的机器上不会。
+		long newStyle = (currentStyle | WsExLayered | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW;
 		SetWindowLongPtr(_hWnd, GwlExStyle, new IntPtr(newStyle));
+	}
+
+	// ITaskbarList：把窗口从任务栏摘掉的官方接口。只用到 HrInit 和 DeleteTab，
+	// 但接口方法必须按 vtable 顺序声明齐 —— 少一个或调换顺序就会调到错误的函数。
+	[ComImport, Guid("56FDF344-FD6D-11d0-958A-006097C9A090")]
+	[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+	private interface ITaskbarList
+	{
+		void HrInit();
+		void AddTab(IntPtr hwnd);
+		void DeleteTab(IntPtr hwnd);
+		void ActivateTab(IntPtr hwnd);
+		void SetActiveAlt(IntPtr hwnd);
+	}
+
+	[ComImport, Guid("56FDF342-FD6D-11d0-958A-006097C9A090")]
+	[ClassInterface(ClassInterfaceType.None)]
+	private class CTaskbarList { }
+
+	/// 让一个子窗口不在任务栏留按钮。
+	///
+	/// 设置窗、聊天记录窗、对话气泡都是独立的 OS 窗口，而 Windows 会给每个显示出来的
+	/// 顶层窗口登记一个任务栏按钮。桌宠不该在任务栏露面，可本类的初始化只覆盖主窗口，
+	/// 这三个一直没人管 —— 用户看到的就是任务栏上多出一个一直高亮的 doro 按钮。
+	///
+	/// 为什么不用 Godot 的 Window.transient：试过，不管用。Win32 层面的 owner 压根
+	/// 没被设上（实测 GetWindow(GW_OWNER) 仍然返回 0），按钮照旧出现。
+	///
+	/// 为什么要等窗口显示出来才动手：Godot 是懒创建 OS 窗口的，visible=false 时那个
+	/// 窗口还不存在，拿不到句柄（实测枚举只能看到已经显示的那些）。所以没法「先设好
+	/// 样式再显示」，只能在它显示的那一刻补救。
+	public void KeepOutOfTaskbar(Window w)
+	{
+		if (w == null) return;
+
+		bool handled = false;
+
+		void Fix()
+		{
+			// 只做一次。TOOLWINDOW 一旦设上就是永久的，之后再显示不会重新登记。
+			if (handled || !w.Visible) return;
+			handled = true;
+
+			int id = (int)w.GetWindowId();
+			IntPtr h = (IntPtr)DisplayServer.WindowGetNativeHandle(DisplayServer.HandleType.WindowHandle, id);
+			if (h == IntPtr.Zero)
+			{
+				GD.PushWarning($"KeepOutOfTaskbar: 取不到 {w.Name} 的窗口句柄（id={id}），它会留在任务栏");
+				return;
+			}
+
+			long style = GetWindowLongPtr(h, GwlExStyle).ToInt64();
+			SetWindowLongPtr(h, GwlExStyle, new IntPtr((style | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW));
+
+			// 光改样式赶不走已经登记上的按钮，这是 Win32 的既定行为 —— 得 hide/show
+			// 一次才会刷新，而那会让窗口明显闪一下。DeleteTab 是官方给的显式摘除
+			// 接口，不用闪。
+			try
+			{
+				var list = (ITaskbarList)new CTaskbarList();
+				list.HrInit();
+				list.DeleteTab(h);
+				Marshal.ReleaseComObject(list);
+			}
+			catch (Exception e)
+			{
+				GD.PushWarning($"从任务栏摘除 {w.Name} 失败：{e.Message}");
+			}
+		}
+
+		w.VisibilityChanged += Fix;
+
+		// 还得立刻自查一次：窗口有可能在我们连上信号之前就已经是可见的
+		// （场景文件里直接设了 visible=true 的情况），那 VisibilityChanged
+		// 永远不会再响，光挂信号等于没修。
+		Fix();
 	}
 
 	public void SetClickThrough(bool clickthrough)

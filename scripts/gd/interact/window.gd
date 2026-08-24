@@ -55,6 +55,20 @@ func _ready() -> void:
 	bind_signals()
 	set_up_fullscreen_detector()
 	update_window()
+	keep_child_windows_out_of_taskbar()
+
+## 设置窗、聊天记录窗、对话气泡都是独立的 OS 窗口，各自会在任务栏登记一个按钮 ——
+## 桌宠不该在任务栏露面。WindowManager 的初始化只管主窗口，这三个得单独交代一次。
+## 具体怎么摘、以及为什么不能用 Godot 的 transient，见 WindowManager.KeepOutOfTaskbar。
+func keep_child_windows_out_of_taskbar() -> void:
+	if windowManager == null:
+		return
+	for path in ["GUI/Settings", "GUI/ChatHistory", "GUI/ChatDialog"]:
+		var w := get_node_or_null(path)
+		if w != null:
+			windowManager.KeepOutOfTaskbar(w)
+		else:
+			push_warning("找不到子窗口 %s，它可能会在任务栏留下按钮" % path)
 
 	add_child(docking_time_counter)
 
