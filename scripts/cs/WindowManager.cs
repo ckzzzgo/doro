@@ -80,12 +80,16 @@ public partial class WindowManager : Node
 	/// （窗口创建时就带上 WS_EX_NOACTIVATE）。这里是给子窗口用的 —— 它们由
 	/// Godot 懒创建，创建时机在项目设置管不到的地方，只能创建后补。
 	///
-	/// 事后摘除的手段全试过、全无效，别再往这里加：
-	///   ITaskbarList.DeleteTab   本机 CLSID 未注册（REGDB_E_CLASSNOTREG）
-	///   ShowWindow hide/show     按钮不动
+	/// 想「把已经登记的按钮摘掉、或把已经打上的橙色高亮清掉」的手段全试过，全都
+	/// 无效，别再往这里加（下面说的无效都只针对这一件事）：
+	///   ITaskbarList.DeleteTab     本机 CLSID 未注册（REGDB_E_CLASSNOTREG）
+	///   ShowWindow hide/show       按钮不动
 	///   设 owner (GWLP_HWNDPARENT) 按钮不动
 	///   FlashWindowEx(FLASHW_STOP) 高亮不消
-	///   SetForegroundWindow      高亮不消
+	///   SetForegroundWindow        高亮不消
+	///
+	/// 最后一条不代表 SetForegroundWindow 没用 —— 它清不掉高亮，但能让窗口拿到
+	/// 键盘焦点，FocusMainWindow 就靠它让输入框能打字。两件事别混。
 	private void SetToolWindowStyle(IntPtr h)
 	{
 		if (h == IntPtr.Zero) return;
@@ -118,13 +122,15 @@ public partial class WindowManager : Node
 	{
 		long currentStyle = GetWindowLongPtr(_hWnd, GwlExStyle).ToInt64();
 
-		// TOOLWINDOW 必须在这里就设上，不能等第一次 SetClickThrough。
+		// 顺手在这里就把 TOOLWINDOW 设上，不留给第一次 SetClickThrough。
 		//
-		// 任务栏按钮是窗口创建时登记的，而登记之后再改扩展样式并不会让按钮消失
-		// （Win32 的既定行为，得 hide/show 一次才刷新）。原来这里只设 LAYERED，
-		// TOOLWINDOW 要等鼠标第一次移进或移出桌宠才由 SetClickThrough 补上 ——
-		// 那之间是一段谁都没管的竞态窗口：用户启动后没碰她，她就可能一直挂在
-		// 任务栏上。这台开发机上复现不出来，但复现不出来不等于别的机器上不会。
+		// 别指望它能解决任务栏按钮：按钮是窗口创建那一刻登记的，而本方法在那之后
+		// 才跑，改样式赶不走已经登记的按钮。真正让按钮压根不出现的是 project.godot
+		// 里的 no_focus（创建时就带上 WS_EX_NOACTIVATE）。
+		//
+		// 那为什么还要在这里设？因为 TOOLWINDOW 还管另一件事 —— 窗口不出现在
+		// Alt+Tab 列表里。原来它只在 SetClickThrough 里设，得等鼠标第一次移进或
+		// 移出桌宠；在那之前按 Alt+Tab 会看到她。提前设掉这段空窗期。
 		long newStyle = (currentStyle | WsExLayered | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW;
 		SetWindowLongPtr(_hWnd, GwlExStyle, new IntPtr(newStyle));
 	}
@@ -133,7 +139,12 @@ public partial class WindowManager : Node
 	///
 	/// 设置窗、聊天记录窗、对话气泡都是独立的 OS 窗口，而 Windows 会给每个显示出来的
 	/// 顶层窗口登记一个任务栏按钮。桌宠不该在任务栏露面，可本类的初始化只覆盖主窗口，
-	/// 这三个一直没人管 —— 用户看到的就是任务栏上多出一个一直高亮的 doro 按钮。
+	/// 这三个一直没人管：一打开设置，任务栏上就多一个按钮。
+	///
+	/// 别和「开机后那个一直橙色高亮的按钮」搞混 —— 那个是【主窗口】的，由
+	/// project.godot 里的 no_focus 解决。排查时我一度以为是这三个子窗口造成的，
+	/// 后来枚举窗口证明不是（主窗口 TOOLWINDOW 明明设着，按钮却还在）。
+	/// 这里修的是另一件事：子窗口显示时各自多一个普通按钮，跟橙色无关。
 	///
 	/// 为什么不用 Godot 的 Window.transient：试过，不管用。Win32 层面的 owner 压根
 	/// 没被设上（实测 GetWindow(GW_OWNER) 仍然返回 0），按钮照旧出现。

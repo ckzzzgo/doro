@@ -57,9 +57,13 @@ func _ready() -> void:
 	update_window()
 	keep_child_windows_out_of_taskbar()
 
-## 设置窗、聊天记录窗、对话气泡都是独立的 OS 窗口，各自会在任务栏登记一个按钮 ——
-## 桌宠不该在任务栏露面。WindowManager 的初始化只管主窗口，这三个得单独交代一次。
-## 具体怎么摘、以及为什么不能用 Godot 的 transient，见 WindowManager.KeepOutOfTaskbar。
+## 设置窗、聊天记录窗、对话气泡都是独立的 OS 窗口，各自显示时会在任务栏登记一个
+## 按钮 —— 桌宠不该在任务栏露面。WindowManager 的初始化只管主窗口，这三个得单独
+## 交代一次。为什么不能用 Godot 的 transient、为什么必须等它们显示出来才能处理，
+## 见 WindowManager.KeepOutOfTaskbar 的注释。
+##
+## 这跟开机后那个一直橙色高亮的按钮是两件事：那个是主窗口的，靠 project.godot
+## 里的 no_focus 解决。
 func keep_child_windows_out_of_taskbar() -> void:
 	if windowManager == null:
 		return
