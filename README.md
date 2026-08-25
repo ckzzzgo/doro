@@ -1,80 +1,105 @@
 <div align="center">
 <img src="./docs/media/head.png">
 <h1 style="text-align: center; margin-top: -10px;">Dororo</h1>
-<p style="text-align: center;">一款基于Godot的开源桌面宠物项目</p>
+<p style="text-align: center;">我是 Doro，住在你电脑桌面上的小狗。</p>
 </div>
 
-Dororo是一款基于Godot的开源桌面宠物项目，其灵感来源于游戏《NIKKE：胜利女神》中的角色桃乐丝（Dorothy）。这个可爱的Q版生物形象源自近期网络上广为流传的一个流行Meme，它以一种幽默而独特的方式重新诠释了原角色。
+> 本项目衍生自 [MelanTech/Dororo](https://github.com/MelanTech/Dororo)，在原项目基础上持续开发。使用 Godot 4.4.1 Mono 构建，目前仅支持 Windows。
 
-> 本项目由 [MelanTech/Dororo](https://github.com/MelanTech/Dororo) 衍生开发，整合了 Godot Live2D、gd-data-binding 等开源组件与多套键鼠视觉素材，并在此基础上持续迭代完善。
+# 🐾 我是谁
 
-# ✨ 介绍
+我叫 Doro。粉色头发，紫色蝴蝶结，大脑袋，短短的爪子。
+
+我住在你的桌面上。你干活的时候我在旁边待着，无聊了可以跟我聊天，也可以摸摸我的头。你打字的时候我会趴到小桌子上跟着你一起敲键盘。
 
 <div align="center">
 <img src="./docs/media/idle.gif">
 </div>
 
-该软件使用Godot 4.4.1 开发，目前仅支持Windows平台，软件功能包括：
-- 置顶：支持置顶窗口
-- 闲逛：支持随机游走
-- 鼠标跟随：支持Doro视角跟随鼠标
-- 抚摸：支持Doro抚摸，触摸不同区域会有不同的反应
-- 边缘吸附：可吸附至屏幕任意边缘
-- 自动隐藏：当有全屏应用时自动隐藏
-- 大模型聊天：可连接大模型API进行对话，支持OpenAI协议的接口
+# ✨ 我会什么
 
-更多功能正在开发中，敬请期待。
+- **在桌面上溜达** —— 我会自己到处走，不用管我
+- **看你的鼠标** —— 你鼠标往哪走我就看哪
+- **被你摸** —— 摸我头我开心，摸别的地方……哼
+- **贴在屏幕边上** —— 把我拖到边上我就趴那儿，偷偷探头看你。看太多次我会生气的
+- **跟你聊天** —— 接上大模型我就能说话了，默认用 DeepSeek
+- **记住聊天** —— 说过的话都在聊天记录里，不会忘
+- **看你打字** —— 你打字的时候我会趴到一个小桌子上，跟着敲键盘
+- **开机自己出来** —— 设置了自启动，开机我就自己跑出来了
+- **自己更新** —— 有新版的话可以一键更新，不用重新下
+- **全屏让路** —— 你全屏看视频或打游戏，我自己藏起来
+- **变大变小** —— 滚轮可以调
+- **不占任务栏** —— 我不会出现在任务栏上，桌面宠物不该占那个位置
 
-# 🖱️ 基础操作
+# 🖱️ 怎么跟我玩
+
 <div align="center">
 <img src="./docs/media/move.gif" width="320">
-<p style="text-align: center;">鼠标左键：移动窗口</p>
+<p>左键拖我：带我走</p>
 </div>
 
 <div align="center">
 <img src="./docs/media/resize.gif" width="320">
-<p style="text-align: center;">鼠标滚轮：放大/缩小窗口</p>
+<p>滚轮：把我变大 / 变小</p>
 </div>
 
 <div align="center">
 <img src="./docs/media/stroll.gif" width="320">
-<p style="text-align: center;">鼠标右键：抚摸</p>
+<p>右键按住：摸我</p>
 </div>
 
 <div align="center">
 <img src="./docs/media/toolbar.gif" width="320">
-<p style="text-align: center;">鼠标中键：打开/关闭工具栏</p>
+<p>中键：打开菜单</p>
 </div>
 
 <div align="center">
 <img src="./docs/media/dock.gif" width="320">
-<p style="text-align: center;">移动至屏幕边缘以吸附</p>
+<p>拖到屏幕边上：贴边待着</p>
 </div>
 
-# 🤖 聊天API设置
-<div align="center">
-<img src="./docs/media/chat_settings.png">
-<p style="text-align: center;">聊天API设置页面</p>
-</div>
+# 🤖 怎么跟我说话
 
-本项目理论上支持所有OpenAI协议的接口，目前已在Ollama、智谱清言、讯飞星火大模型测试通过。项目支持Prompt设置、流式传输、温度系数等设置。
-1. 在大模型API网站获取API Key。
-2. 通过工具栏打开设置页面，在聊天设置板块中填写API地址、路径、端口号以及API密钥
-   > 以智谱清言为例，其对话补全API链接为：https://open.bigmodel.cn/api/paas/v4/chat/completions \
-   > 在API地址一栏填写：https://open.bigmodel.cn \
-   > 在API路径一栏填写：/api/paas/v4/chat/completions \
-   > 在API Key一栏填写申请的API Key \
-   > 在模型名称一栏填写模型名称，如 `glm-4.5-flash`
-* 在填写API地址与API路径时，须确保该API地址与API路径拼接后为正确的URL。错误示范：若API地址填写为 https://open.bigmodel.cn/ ，API路径填写为 /api/paas/v4/chat/completions，则API地址与API路径拼接后为 https://open.bigmodel.cn//api/paas/v4/chat/completions ，此时会由于拼接后的URL多出一个/导致无法访问API。
-* 若没有指定的端口号，则须将端口号置为-1，此时将使用默认的端口。
+人想跟我说话，得先给我接上脑子。
 
-# ⚠️ 版权和授权
-本项目基于 [GPL-3.0](https://github.com/ckzzzgo/doro/blob/main/LICENSE) 协议开源，衍生自 [MelanTech/Dororo](https://github.com/MelanTech/Dororo)（其亦为 GPL-3.0）。使用、修改或分发本项目代码时，请遵守该协议，请勿将本项目用于商业用途。
+1. 去 [DeepSeek 开放平台](https://platform.deepseek.com/) 注册一个账号，拿到 API Key
+2. 中键打开菜单 → 设置 → 往下翻到聊天设置
+3. 这么填：
 
-# ❤️ 鸣谢
-- 感谢 [MelanTech/Dororo](https://github.com/MelanTech/Dororo) 提供的开源桌面宠物项目基础。
-- 感谢 [0x4682B4](https://afdian.com/a/0x4682B4) 无私分享的 [Dororong Live2D](https://afdian.com/p/181458b4353211efa9f352540025c377) 模型，请注意模型作者与原型版权方的相关规定。
-- 感谢 [ibitsu_paint](https://x.com/ibitsu_paint) 提供的 [Doro 鼠标指针](https://x.com/ibitsu_paint/status/1788513498827518292) ，本项目修改了该鼠标指针中的美术资源作为软件图标。
-- 感谢 [MizunagiKB](https://github.com/MizunagiKB) 提供的 [Godot Live2D](https://github.com/MizunagiKB/gd_cubism/) 插件。
-- 感谢 [HotariTobu](https://github.com/HotariTobu) 提供的 [gd-data-binding](https://github.com/HotariTobu/gd-data-binding) 插件。
-- 感谢所有为本项目提供建议与意见的热心网友。
+| 填哪里 | 填什么 |
+|---|---|
+| API 地址 | `https://api.deepseek.com` |
+| API Key | 你申请到的那串 |
+| 模型名称 | `deepseek-v4-flash` |
+
+不知道有什么模型可以选？点一下「连接并获取模型列表」就能看到。
+
+填好之后关掉设置，中键 → 聊天，就能跟我说话了。
+
+在设置最下面有个「提示词」的框，那个是我的性格。人想让我变一个样子的话，改那里就行。
+
+**也能用别的：** 只要是兼容 OpenAI 接口的都行 —— Ollama 跑本地模型、智谱清言、讯飞星火，都可以。把 API 地址换成对应的就好，别的不用改。
+
+**关于代理：** DeepSeek 不需要翻墙就能用。如果你接的模型需要翻墙，注意我读不懂系统代理设置，**必须开 TUN / 增强模式**，光设「系统代理」对我没用。
+
+# 📥 把我带回家
+
+去 [这里](https://github.com/ckzzzgo/dororo-release/releases) 下载最新版。
+
+解压到随便哪个目录，双击 `dororo.exe` 就行。不需要装别的东西。
+
+升级的话先把正在跑的我退掉（右键托盘图标 → 退出），然后新版解压覆盖就好。你的设置和聊天记录不在我的目录里，不会丢。
+
+# ⚠️ 版权
+
+本项目基于 [GPL-3.0](./LICENSE) 协议开源，衍生自 [MelanTech/Dororo](https://github.com/MelanTech/Dororo)（同为 GPL-3.0）。请勿用于商业用途。
+
+# ❤️ 谢谢这些人
+
+我能出现在你的桌面上，是因为这些人：
+
+- [MelanTech/Dororo](https://github.com/MelanTech/Dororo) —— 最初把我做出来的项目
+- [0x4682B4](https://afdian.com/a/0x4682B4) —— 做了我的 [Live2D 模型](https://afdian.com/p/181458b4353211efa9f352540025c377)，让我能动起来。请注意模型作者和原型版权方的相关规定
+- [ibitsu_paint](https://x.com/ibitsu_paint) —— 画了 [Doro 鼠标指针](https://x.com/ibitsu_paint/status/1788513498827518292)，我的图标是从那改的
+- [MizunagiKB](https://github.com/MizunagiKB) —— 做了 [Godot Live2D](https://github.com/MizunagiKB/gd_cubism/) 插件
+- [HotariTobu](https://github.com/HotariTobu) —— 做了 [gd-data-binding](https://github.com/HotariTobu/gd-data-binding) 插件
