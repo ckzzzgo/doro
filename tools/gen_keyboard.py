@@ -122,9 +122,15 @@ ARROW_DIR = {'\u2190': 180.0, '\u2192': 0.0, '\u2191': -90.0, '\u2193': 90.0}
 #
 # \u81ea\u5df1\u753b\u5c31\u80fd\u628a\u533a\u522b\u505a\u51fa\u6765\uff1a\u53e5\u70b9\u662f\u4e2a\u6b63\u5706\uff0c\u9017\u53f7\u662f\u5706\u52a0\u4e00\u6761\u671d\u4e0b\u7684\u5c3e\u5df4\u3002\u5c3e\u5df4\u7684\u65b9\u5411\u5f97\u6cbf
 # \u952e\u76d8\u7684 row \u8f74\uff08\u8ddf\u7bad\u5934\u540c\u4e00\u4e2a\u9053\u7406\uff0c\u6295\u5f71\u5e26\u5207\u53d8\uff0c\u4e0d\u80fd\u62ff\u300c\u5782\u76f4\u300d\u5f53\u300c\u4e0b\u300d\uff09\u3002
+# \u5c3a\u5bf8\u662f\u6309**\u5b9e\u673a\u663e\u793a\u5c3a\u5bf8**\u6311\u7684\uff0c\u4e0d\u662f\u6309\u8d34\u56fe\u653e\u5927\u56fe\u6311\u7684\u3002
+# \u5b9e\u673a\u4e0a\u4e00\u4e2a\u952e\u5e3d\u53ea\u6709\u7ea6 13x6 \u50cf\u7d20\uff0c\u53e5\u70b9\u5360 2x2 \u2014\u2014 \u8fd9\u4e2a\u5c3a\u5bf8\u4e0b\u5f62\u72b6\u7ec6\u8282\u5168\u7cca\u6389\uff0c\u552f\u4e00
+# \u8fd8\u80fd\u6d3b\u4e0b\u6765\u7684\u533a\u522b\u662f\u300c\u7d27\u51d1\u7684\u5706\u300d\u5bf9\u300c\u660e\u663e\u7684\u957f\u6761\u300d\u3002\u6240\u4ee5\u4e24\u8005\u5206\u5f00\u8bbe\u53c2\u6570\uff0c\u628a\u8fd9\u4e2a\u533a\u522b
+# \u62c9\u5230\u6700\u5927\uff1a\u53e5\u70b9\u505a\u6210\u9971\u6ee1\u7684\u5b9e\u5fc3\u5706\uff0c\u9017\u53f7\u505a\u6210\u7ec6\u957f\u7684\u9525\u5f62\u3002
 VECTOR_PUNCT = {',', '.'}
-PUNCT_R = 0.105                     # \u5706\u70b9\u534a\u5f84\uff0c\u76f8\u5bf9\u4e00\u4e2a\u952e\u5e3d\u5bbd
-PUNCT_TAIL = 3.2                    # \u9017\u53f7\u5c3e\u5df4\u957f\u5ea6\uff0c\u76f8\u5bf9\u5706\u70b9\u534a\u5f84
+DOT_R = 0.125                       # \u53e5\u70b9\u534a\u5f84\uff0c\u76f8\u5bf9\u4e00\u4e2a\u952e\u5e3d\u5bbd
+COMMA_R = 0.100                     # \u9017\u53f7\u5934\u90e8\u534a\u5f84
+COMMA_TAIL = 4.2                    # \u9017\u53f7\u5c3e\u5df4\u957f\u5ea6\uff0c\u76f8\u5bf9\u5934\u90e8\u534a\u5f84
+COMMA_TIP = 0.25                    # \u5c3e\u7aef\u5bbd\u5ea6\uff0c\u76f8\u5bf9\u5934\u90e8\u534a\u5f84\uff08\u4e0d\u6536\u6210\u9488\u5c16\uff0c\u5426\u5219\u7f29\u5b8c\u5c31\u6ca1\u4e86\uff09
 
 # 拟合用的布局：只用字母数字四排，列位置是标准 QWERTY
 FIT_ROWS = {
@@ -368,20 +374,29 @@ def build(keys, proj, unproj):
 
         if lab in VECTOR_PUNCT:
             # 圆点 +（逗号的）尾巴。尾巴沿 row 轴朝下，跟箭头同一个道理。
-            u_row, per_row = step(proj(col, row - 0.5), proj(col, row + 0.5))
+            u_row, _ = step(proj(col, row - 0.5), proj(col, row + 0.5))
             _, per_col = step(proj(col - 0.5, row), proj(col + 0.5, row))
-            r = per_col * PUNCT_R * SS
             ox, oy = cx * SS, cy * SS
-            if lab == ',':
-                # 尾巴画成一个从圆边收窄到一点的三角，比直线更像逗号
-                tx = ox + u_row[0] * r * PUNCT_TAIL
-                ty = oy + u_row[1] * r * PUNCT_TAIL
+            if lab == '.':
+                r = per_col * DOT_R * SS
+                ld.ellipse([ox - r, oy - r, ox + r, oy + r], fill=C_TEXT)
+            else:
+                r = per_col * COMMA_R * SS
+                # 逗号是单向伸出去的（头在中心、尾朝下），直接画会偏向一边、还容易
+                # 顶出键帽。把整个形状沿 row 轴往回挪半个身位，让它在键帽里居中。
+                back = (COMMA_TAIL - 1.0) * 0.5 * r
+                ox -= u_row[0] * back
+                oy -= u_row[1] * back
+                tx = ox + u_row[0] * r * COMMA_TAIL
+                ty = oy + u_row[1] * r * COMMA_TAIL
+                e = max(0.6, r * COMMA_TIP)
                 nx, ny = -u_row[1], u_row[0]
-                # 尾根一侧贴着圆、另一侧收窄，末端收成尖 —— 像逗号，不像蝌蚪
-                ld.polygon([(ox + nx * r * 0.95, oy + ny * r * 0.95),
-                            (ox - nx * r * 0.55, oy - ny * r * 0.55),
-                            (tx, ty)], fill=C_TEXT)
-            ld.ellipse([ox - r, oy - r, ox + r, oy + r], fill=C_TEXT)
+                # 头部圆 + 一条收窄到 e 的锥形 + 尾端小圆，整体是个细长的逗号
+                ld.polygon([(ox + nx * r, oy + ny * r), (ox - nx * r, oy - ny * r),
+                            (tx - nx * e, ty - ny * e), (tx + nx * e, ty + ny * e)],
+                           fill=C_TEXT)
+                ld.ellipse([ox - r, oy - r, ox + r, oy + r], fill=C_TEXT)
+                ld.ellipse([tx - e, ty - e, tx + e, ty + e], fill=C_TEXT)
             continue
 
         pa, pb = proj(col - 0.5, row), proj(col + 0.5, row)
