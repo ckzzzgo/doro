@@ -35,9 +35,13 @@ param(
     # 导出预设名，需与 export_presets.cfg 中的 name 一致
     [string]$Preset = "Windows Desktop",
 
-    # 发布仓库。2026-08 起源码和发布合并到同一个仓库 —— 以前分开是因为源码仓库
-    # 私有、匿名请求它的 API 只会得到 404，现在仓库已公开，没有再分两处的理由。
-    # 旧的 ckzzzgo/dororo-release 就地留着不动，不再往那儿发新版本。
+    # 发布仓库。源码和发布都在这一个仓库里。
+    #
+    # 以前分两个：源码仓库私有，匿名请求它的 API 只会得到 404，所以安装包和
+    # version.json 单独放在一个公开的 ckzzzgo/dororo-release。2026-08-26 项目开源，
+    # 分两处的理由消失，合并回来，那个仓库连同它的 25 个历史 release 一起删掉了
+    # —— 那些 zip 里装着未获许可的素材（Awesome-BongoCat 改色键盘图、微软雅黑），
+    # 删掉正是清理的目的。累计下载 45 次，影响可忽略。
     [string]$ReleaseRepo = "ckzzzgo/doro",
 
     # 导出阶段的看门狗阈值：产物已生成、而 Godot 的 CPU 时间连续这么多秒没增长，
@@ -181,13 +185,6 @@ $lines = [System.Collections.Generic.List[string]]::new()
 $script:quiet = 0
 $beat = [System.Diagnostics.Stopwatch]::StartNew()
 
-# 开跑前清掉上一轮留下的进程。
-#
-# 这些进程会锁住 %APPDATA%\Godot\app_userdata\Dororo\logs\godot.log，
-# 后面第 6 步要删那个文件，删不掉整个构建就失败（实测遇到过）。
-#
-# 只清「本脚本用的那个 Godot 可执行文件」和 dororo.exe —— 按可执行文件路径匹配，
-# 不按进程名，免得把用户自己开着的 Godot 编辑器一起杀了。
 # 先删掉上一轮的产物。
 #
 # 这是下面看门狗那条「产物已生成」判定的前提：旧文件若还在，条件从第 0 秒就成立，
@@ -199,6 +196,14 @@ foreach ($old in @($stageExe, $stagePck)) {
     if (Test-Path $old) { Remove-Item $old -Force -ErrorAction SilentlyContinue }
 }
 
+# 再清掉上一轮留下的进程。
+#
+# 这些进程会锁住 %APPDATA%\Godot\app_userdata\Dororo\logs\godot.log，
+# 后面第 6 步要删那个文件才能确认「本次运行」的渲染器，删不掉整个构建就失败
+# （实测遇到过）。
+#
+# 只清「本脚本用的那个 Godot 可执行文件」和 dororo.exe —— 按可执行文件名匹配，
+# 免得把用户自己开着的 Godot 编辑器一起杀了。
 $godotLeaf = [System.IO.Path]::GetFileNameWithoutExtension($Godot)
 $stale = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
     $_.ProcessName -eq $godotLeaf -or $_.ProcessName -eq 'dororo'
