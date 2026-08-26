@@ -1,7 +1,6 @@
 extends Node2D
 
-const KEYBOARD_TEXTURE_PATH := "res://images/input_reaction/nairin_keyboard.png"
-const KEYBOARD_LABEL_FONT_PATH := "res://fonts/MSYHBD.TTC"
+const KEYBOARD_TEXTURE_PATH := "res://images/input_reaction/doro_keyboard.png"
 const KEYBOARD_SOURCE_SIZE := Vector2(612, 354)
 const KEYBOARD_CENTER := Vector2(107, 66)
 const KEYBOARD_SCALE := 0.68
@@ -15,14 +14,73 @@ const TABLE_EDGE_COLOR := Color("#dca7b2")
 const OUTLINE_COLOR := Color("#532831")
 const TABLE_BACK_LEFT := Vector2(-320, -20)
 const TABLE_BACK_RIGHT := Vector2(320, 64)
-const KEY_ACTIVE_COLOR := Color("#ff6f91")
-const KEY_ACTIVE_EDGE := Color("#d92f59")
-const KEY_TEXT_COLOR := Color("#44242b")
-const KEY_LABEL_COLOR := Color("#245b8f")
-const KEY_LABEL_OUTLINE_COLOR := Color(1.0, 1.0, 1.0, 0.96)
-# 按键按舞台 x 坐标分区：大于此值归键盘爪（屏幕右侧），否则归鼠标爪。
-# 101 位于 Y/M 键区与 H/5 键区之间的天然空隙，两侧按键数量大致相等。
-const KEY_SPLIT_X := 101.0
+
+## 每个键帽的四个角，相对键心，贴图坐标系（612x354）。
+##
+## 由 tools/gen_keyboard.py 连同键盘贴图一起生成 —— 别手改，改了就跟贴图对不上了。
+## 按下时的高光就照这四个角描边，所以高光和画在贴图上的键必然重合。
+const KEY_SHAPES := {
+	0xA4: [Vector2(4.7, 9.1), Vector2(-25.8, 3.7), Vector2(-4.7, -9.1), Vector2(25.7, -3.7)],  # Alt
+	0xC0: [Vector2(1.7, 8.6), Vector2(-22.7, 4.3), Vector2(-1.7, -8.6), Vector2(22.7, -4.3)],  # `
+	0x14: [Vector2(10.8, 10.2), Vector2(-31.9, 2.6), Vector2(-10.8, -10.2), Vector2(31.8, -2.6)],  # Caps
+	0xA2: [Vector2(7.8, 9.7), Vector2(-28.7, 3.1), Vector2(-7.8, -9.7), Vector2(28.7, -3.1)],  # Ctrl
+	0x41: [Vector2(1.7, 8.6), Vector2(-22.7, 4.2), Vector2(-1.7, -8.6), Vector2(22.7, -4.2)],  # A
+	0x42: [Vector2(1.7, 8.6), Vector2(-22.8, 4.2), Vector2(-1.7, -8.6), Vector2(22.8, -4.2)],  # B
+	0x43: [Vector2(1.7, 8.6), Vector2(-22.8, 4.2), Vector2(-1.7, -8.6), Vector2(22.7, -4.2)],  # C
+	0x44: [Vector2(1.7, 8.6), Vector2(-22.8, 4.2), Vector2(-1.7, -8.6), Vector2(22.8, -4.2)],  # D
+	0x45: [Vector2(1.7, 8.6), Vector2(-22.8, 4.3), Vector2(-1.7, -8.6), Vector2(22.8, -4.2)],  # E
+	0x46: [Vector2(1.7, 8.6), Vector2(-22.8, 4.2), Vector2(-1.7, -8.6), Vector2(22.8, -4.2)],  # F
+	0x47: [Vector2(1.7, 8.6), Vector2(-22.8, 4.2), Vector2(-1.7, -8.6), Vector2(22.8, -4.2)],  # G
+	0x51: [Vector2(1.7, 8.6), Vector2(-22.7, 4.3), Vector2(-1.7, -8.6), Vector2(22.7, -4.3)],  # Q
+	0x52: [Vector2(1.7, 8.6), Vector2(-22.8, 4.3), Vector2(-1.7, -8.6), Vector2(22.8, -4.2)],  # R
+	0x53: [Vector2(1.7, 8.6), Vector2(-22.7, 4.2), Vector2(-1.7, -8.6), Vector2(22.7, -4.2)],  # S
+	0x54: [Vector2(1.7, 8.6), Vector2(-22.8, 4.3), Vector2(-1.7, -8.6), Vector2(22.8, -4.2)],  # T
+	0x56: [Vector2(1.7, 8.6), Vector2(-22.8, 4.2), Vector2(-1.7, -8.6), Vector2(22.8, -4.2)],  # V
+	0x57: [Vector2(1.7, 8.6), Vector2(-22.8, 4.3), Vector2(-1.7, -8.6), Vector2(22.7, -4.3)],  # W
+	0x58: [Vector2(1.7, 8.6), Vector2(-22.7, 4.2), Vector2(-1.7, -8.6), Vector2(22.7, -4.2)],  # X
+	0x5A: [Vector2(1.7, 8.6), Vector2(-22.7, 4.2), Vector2(-1.7, -8.6), Vector2(22.7, -4.2)],  # Z
+	0x5B: [Vector2(4.7, 9.1), Vector2(-25.7, 3.7), Vector2(-4.7, -9.1), Vector2(25.7, -3.7)],  # Win
+	0x31: [Vector2(1.7, 8.6), Vector2(-22.8, 4.3), Vector2(-1.7, -8.6), Vector2(22.7, -4.3)],  # 1
+	0x32: [Vector2(1.7, 8.6), Vector2(-22.8, 4.3), Vector2(-1.7, -8.6), Vector2(22.8, -4.3)],  # 2
+	0x33: [Vector2(1.7, 8.6), Vector2(-22.8, 4.3), Vector2(-1.7, -8.6), Vector2(22.8, -4.3)],  # 3
+	0x34: [Vector2(1.7, 8.6), Vector2(-22.8, 4.3), Vector2(-1.7, -8.6), Vector2(22.8, -4.3)],  # 4
+	0x35: [Vector2(1.7, 8.6), Vector2(-22.8, 4.3), Vector2(-1.7, -8.6), Vector2(22.8, -4.3)],  # 5
+	0xA0: [Vector2(16.9, 11.3), Vector2(-37.9, 1.5), Vector2(-16.9, -11.3), Vector2(37.9, -1.5)],  # Shift
+	0x20: [Vector2(65.7, 20.0), Vector2(-87.0, -7.2), Vector2(-65.8, -20.0), Vector2(86.8, 7.2)],  # Space
+	0x09: [Vector2(7.8, 9.7), Vector2(-28.8, 3.2), Vector2(-7.8, -9.7), Vector2(28.8, -3.2)],  # Tab
+	0xDC: [Vector2(7.8, 9.7), Vector2(-29.1, 3.2), Vector2(-7.8, -9.7), Vector2(29.1, -3.1)],  # \\
+	0x08: [Vector2(13.9, 10.8), Vector2(-35.3, 2.1), Vector2(-13.9, -10.8), Vector2(35.3, -2.1)],  # Back
+	0xBC: [Vector2(1.6, 8.6), Vector2(-22.8, 4.2), Vector2(-1.6, -8.6), Vector2(22.8, -4.2)],  # ,
+	0xBE: [Vector2(1.6, 8.6), Vector2(-22.9, 4.2), Vector2(-1.6, -8.6), Vector2(22.8, -4.2)],  # .
+	0x28: [Vector2(7.3, 5.2), Vector2(-17.2, 0.8), Vector2(-7.3, -5.2), Vector2(17.2, -0.8)],  # ↓
+	0xBB: [Vector2(1.6, 8.6), Vector2(-23.0, 4.3), Vector2(-1.6, -8.6), Vector2(23.0, -4.3)],  # =
+	0x48: [Vector2(1.7, 8.6), Vector2(-22.8, 4.2), Vector2(-1.7, -8.6), Vector2(22.8, -4.2)],  # H
+	0x49: [Vector2(1.6, 8.6), Vector2(-22.9, 4.2), Vector2(-1.6, -8.6), Vector2(22.9, -4.2)],  # I
+	0x4A: [Vector2(1.6, 8.6), Vector2(-22.8, 4.2), Vector2(-1.6, -8.6), Vector2(22.8, -4.2)],  # J
+	0x4B: [Vector2(1.6, 8.6), Vector2(-22.9, 4.2), Vector2(-1.6, -8.6), Vector2(22.8, -4.2)],  # K
+	0x4C: [Vector2(1.6, 8.6), Vector2(-22.9, 4.2), Vector2(-1.6, -8.6), Vector2(22.9, -4.2)],  # L
+	0x4D: [Vector2(1.6, 8.6), Vector2(-22.8, 4.2), Vector2(-1.6, -8.6), Vector2(22.8, -4.2)],  # M
+	0x4E: [Vector2(1.7, 8.6), Vector2(-22.8, 4.2), Vector2(-1.7, -8.6), Vector2(22.8, -4.2)],  # N
+	0x4F: [Vector2(1.6, 8.6), Vector2(-22.9, 4.2), Vector2(-1.6, -8.6), Vector2(22.9, -4.2)],  # O
+	0x50: [Vector2(1.6, 8.6), Vector2(-22.9, 4.2), Vector2(-1.6, -8.6), Vector2(22.9, -4.2)],  # P
+	0x55: [Vector2(1.6, 8.6), Vector2(-22.9, 4.3), Vector2(-1.6, -8.6), Vector2(22.8, -4.2)],  # U
+	0x59: [Vector2(1.7, 8.6), Vector2(-22.8, 4.3), Vector2(-1.7, -8.6), Vector2(22.8, -4.2)],  # Y
+	0x25: [Vector2(1.6, 8.6), Vector2(-22.9, 4.2), Vector2(-1.6, -8.6), Vector2(22.9, -4.2)],  # ←
+	0xDB: [Vector2(1.6, 8.6), Vector2(-22.9, 4.2), Vector2(-1.6, -8.6), Vector2(22.9, -4.2)],  # [
+	0xBD: [Vector2(1.6, 8.6), Vector2(-23.0, 4.3), Vector2(-1.6, -8.6), Vector2(22.9, -4.3)],  # -
+	0x30: [Vector2(1.6, 8.6), Vector2(-22.9, 4.3), Vector2(-1.6, -8.6), Vector2(22.9, -4.3)],  # 0
+	0x36: [Vector2(1.6, 8.6), Vector2(-22.9, 4.3), Vector2(-1.6, -8.6), Vector2(22.8, -4.3)],  # 6
+	0x37: [Vector2(1.6, 8.6), Vector2(-22.9, 4.3), Vector2(-1.6, -8.6), Vector2(22.9, -4.3)],  # 7
+	0x38: [Vector2(1.6, 8.6), Vector2(-22.9, 4.3), Vector2(-1.6, -8.6), Vector2(22.9, -4.3)],  # 8
+	0x39: [Vector2(1.6, 8.6), Vector2(-22.9, 4.3), Vector2(-1.6, -8.6), Vector2(22.9, -4.3)],  # 9
+	0xDE: [Vector2(1.6, 8.6), Vector2(-22.9, 4.2), Vector2(-1.6, -8.6), Vector2(22.9, -4.2)],  # '
+	0x0D: [Vector2(17.0, 11.3), Vector2(-38.3, 1.5), Vector2(-17.0, -11.3), Vector2(38.3, -1.5)],  # Enter
+	0x27: [Vector2(1.6, 8.6), Vector2(-22.9, 4.2), Vector2(-1.6, -8.6), Vector2(22.9, -4.2)],  # →
+	0xDD: [Vector2(1.6, 8.6), Vector2(-23.0, 4.2), Vector2(-1.6, -8.6), Vector2(22.9, -4.2)],  # ]
+	0xBA: [Vector2(1.6, 8.6), Vector2(-22.9, 4.2), Vector2(-1.6, -8.6), Vector2(22.9, -4.2)],  # ;
+	0xBF: [Vector2(1.6, 8.6), Vector2(-22.9, 4.2), Vector2(-1.6, -8.6), Vector2(22.9, -4.2)],  # /
+	0x26: [Vector2(7.3, 5.2), Vector2(-17.2, 0.8), Vector2(-7.3, -5.2), Vector2(17.2, -0.8)],  # ↑
+}
 
 const MOUSE_TEXTURE_PATH := "res://images/input_reaction/pink_mouse_rounded_perspective_v2.png"
 const MOUSE_SOURCE_SIZE := Vector2(1536, 1024)
@@ -38,7 +96,6 @@ var _held_keys: Dictionary = {}
 var _key_flash_until: Dictionary = {}
 var _held_mouse: Dictionary = {}
 var _mouse_flash_until: Dictionary = {}
-var _font: Font
 var _keyboard_texture: Texture2D
 var _mouse_texture: Texture2D
 var _key_highlight_layer: Node2D
@@ -55,9 +112,11 @@ class _KeyHighlightLayer:
 	func _draw() -> void:
 		for key in active_keys:
 			var center: Vector2 = key["center"]
-			var size: Vector2 = key["size"]
-			var outline := _rounded_key_outline(size)
-			draw_set_transform(center, 0.175, Vector2.ONE)
+			var shape: PackedVector2Array = key["shape"]
+			if shape.size() < 3:
+				continue
+			var outline := _rounded_key_outline(shape)
+			draw_set_transform(center, 0.0, Vector2.ONE)
 			# Edge-only highlight: a soft outer halo plus one crisp key-cap stroke.
 			# There is deliberately no filled polygon, so the printed label stays
 			# readable and the paw can visibly press the key surface.
@@ -75,34 +134,30 @@ class _KeyHighlightLayer:
 			)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
 
-	func _rounded_key_outline(size: Vector2) -> PackedVector2Array:
-		var radius := minf(3.0, minf(size.x, size.y) * 0.28)
-		var half := size * 0.5
-		var centers := PackedVector2Array([
-			Vector2(half.x - radius, -half.y + radius),
-			Vector2(half.x - radius, half.y - radius),
-			Vector2(-half.x + radius, half.y - radius),
-			Vector2(-half.x + radius, -half.y + radius)
-		])
-		var starts := PackedFloat32Array([-PI * 0.5, 0.0, PI * 0.5, PI])
+	## 给键帽四边形切圆角。
+	##
+	## 原来是拿一个写死的 Vector2 尺寸拼轴对齐矩形，再统一转 0.175 rad。键帽其实是
+	## 透视投影出来的平行四边形，带切变，用矩形拼不出来 —— 按下时高光和键就错位。
+	## 现在四个角由生成脚本连同贴图一起算出来（KEY_SHAPES），两边同一个来源。
+	func _rounded_key_outline(quad: PackedVector2Array) -> PackedVector2Array:
 		var points := PackedVector2Array()
-		for corner in range(4):
+		var n := quad.size()
+		for i in range(n):
+			var p0 := quad[(i - 1 + n) % n]
+			var p1 := quad[i]
+			var p2 := quad[(i + 1) % n]
+			var r := 0.28
+			var a := p1 + (p0 - p1) * r
+			var b := p1 + (p2 - p1) * r
 			for step in range(4):
-				var angle := starts[corner] + PI * 0.5 * float(step) / 3.0
-				points.append(
-					centers[corner]
-					+ Vector2(cos(angle), sin(angle)) * radius
-				)
+				var t := float(step) / 3.0
+				var mt := 1.0 - t
+				points.append(a * (mt * mt) + p1 * (2.0 * mt * t) + b * (t * t))
 		points.append(points[0])
 		return points
 
 
 func _ready() -> void:
-	var label_font := load(KEYBOARD_LABEL_FONT_PATH)
-	if label_font is Font:
-		_font = label_font as Font
-	else:
-		_font = ThemeDB.fallback_font
 	_keyboard_texture = _load_keyboard_texture()
 	_mouse_texture = _load_png_texture(MOUSE_TEXTURE_PATH)
 	_build_key_map()
@@ -274,48 +329,23 @@ func _draw_keyboard() -> void:
 			false
 		)
 
-	_draw_key_labels()
+	# 键帽上的字直接来自贴图，这里不再画第二遍。
+	#
+	# 以前贴图自带一套小字，代码又用 MSYHBD 画一套粗的盖上去，靠一圈 1 像素的白描边
+	# 遮住下面那套。遮不住：两套字大小不同（代码固定 font_size 8，贴图跟着缩放），
+	# 旋转也不同（代码固定 0.175 rad，贴图每个键跟着各自的透视角度），错位露边，
+	# 看上去就是「键盘有两层」。实测把实机画面和贴图对齐后有 20.22% 的像素对不上，
+	# 差出来的全是字。
+	#
+	# 现在的贴图由生成脚本按每个键各自的透视角度把字画好，一层就够了。
 
 
-
-func _draw_key_labels() -> void:
-	if _font == null:
-		return
-	for virtual_key in _keys_by_vk:
-		var key: Dictionary = _keys_by_vk[virtual_key]
-		var label: String = key["label"]
-		var font_size := 8 if label.length() <= 2 else 6
-		var text_size := _font.get_string_size(
-			label,
-			HORIZONTAL_ALIGNMENT_LEFT,
-			-1,
-			font_size
-		)
-		draw_set_transform(key["center"], 0.175, Vector2.ONE)
-		var baseline := Vector2(-text_size.x * 0.5, text_size.y * 0.34)
-		# The source bitmap already contains tiny labels. A one-pixel light outline
-		# masks those underlying glyphs before the bold label is drawn, preventing
-		# the doubled/blurred appearance caused by two slightly different rasters.
-		draw_string_outline(
-			_font,
-			baseline,
-			label,
-			HORIZONTAL_ALIGNMENT_LEFT,
-			-1,
-			font_size,
-			1,
-			KEY_LABEL_OUTLINE_COLOR
-		)
-		draw_string(
-			_font,
-			baseline,
-			label,
-			HORIZONTAL_ALIGNMENT_LEFT,
-			-1,
-			font_size,
-			KEY_LABEL_COLOR
-		)
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+func _scaled_shape(virtual_key: int) -> PackedVector2Array:
+	var quad: Array = KEY_SHAPES.get(virtual_key, [])
+	var out := PackedVector2Array()
+	for p in quad:
+		out.append(p * KEYBOARD_SCALE)
+	return out
 
 
 func _update_key_highlight_layer() -> void:
@@ -328,7 +358,7 @@ func _update_key_highlight_layer() -> void:
 		var key: Dictionary = _keys_by_vk[virtual_key]
 		active_keys.append({
 			"center": key["center"],
-			"size": _highlight_size(virtual_key),
+			"shape": _scaled_shape(virtual_key),
 		})
 	_key_highlight_layer.set_active_keys(active_keys)
 
@@ -358,7 +388,7 @@ func _draw_mouse() -> void:
 func _mouse_button_polygon(button: int) -> PackedVector2Array:
 	# In this perspective the mouse points toward the lower-left. The physical
 	# left button is therefore the lower-right pink panel in source coordinates.
-	var source_points := PackedVector2Array([
+	var source_points := [
 		Vector2(765, 392),
 		Vector2(796, 412),
 		Vector2(820, 432),
@@ -397,9 +427,9 @@ func _mouse_button_polygon(button: int) -> PackedVector2Array:
 		Vector2(711, 452),
 		Vector2(727, 432),
 		Vector2(745, 412)
-	])
+	]
 	if button == 2:
-		source_points = PackedVector2Array([
+		source_points = [
 			Vector2(565, 286),
 			Vector2(635, 306),
 			Vector2(673, 326),
@@ -438,7 +468,7 @@ func _mouse_button_polygon(button: int) -> PackedVector2Array:
 			Vector2(497, 346),
 			Vector2(517, 326),
 			Vector2(539, 306)
-		])
+		]
 
 	var stage_points := PackedVector2Array()
 	for point in source_points:
@@ -451,11 +481,17 @@ func _mouse_source_to_stage(source_point: Vector2) -> Vector2:
 	return MOUSE_CENTER + local_point.rotated(MOUSE_ROTATION)
 
 
+## 键位表：每个键在键盘贴图（612x354）上的中心。
+##
+## Tab / Ctrl / Win 三个曾经写错，跟贴图上画的键帽差了 7.6~9.3 px（其余 57 个键的
+## 中位误差只有 0.24 px）。旧的按键高光是写死的 26x14 矩形，盖得住这点偏移，所以
+## 一直没暴露；但这份坐标同时喂给 get_key_center 决定爪子的落点，按这三个键时爪子
+## 是偏的。2026-08-26 按贴图上键帽的实际中心改正。
 func _build_key_map() -> void:
 	_add_key(0xA4, "Alt", Vector2(453.6, 235.9))
 	_add_key(0xC0, "`", Vector2(445.7, 312.0))
 	_add_key(0x14, "Caps", Vector2(482.1, 280.0))
-	_add_key(0xA2, "Ctrl", Vector2(545.6, 247.4))
+	_add_key(0xA2, "Ctrl", Vector2(538.6, 251.3))
 	_add_key(0x41, "A", Vector2(445.1, 273.4))
 	_add_key(0x42, "B", Vector2(345.9, 236.2))
 	_add_key(0x43, "C", Vector2(402.0, 246.2))
@@ -471,7 +507,7 @@ func _build_key_map() -> void:
 	_add_key(0x57, "W", Vector2(404.4, 285.2))
 	_add_key(0x58, "X", Vector2(430.5, 251.4))
 	_add_key(0x5A, "Z", Vector2(458.5, 256.4))
-	_add_key(0x5B, "Win", Vector2(488.8, 237.3))
+	_add_key(0x5B, "Win", Vector2(482.2, 241.1))
 	_add_key(0x31, "1", Vector2(418.0, 307.1))
 	_add_key(0x32, "2", Vector2(389.8, 302.0))
 	_add_key(0x33, "3", Vector2(361.2, 297.0))
@@ -479,7 +515,7 @@ func _build_key_map() -> void:
 	_add_key(0x35, "5", Vector2(304.7, 287.0))
 	_add_key(0xA0, "Shift", Vector2(499.9, 263.6))
 	_add_key(0x20, "Space", Vector2(359.6, 219.1))
-	_add_key(0x09, "Tab", Vector2(456.5, 300.2))
+	_add_key(0x09, "Tab", Vector2(464.9, 296.1))
 	_add_key(0xDC, "\\", Vector2(86.9, 228.8))
 	_add_key(0x08, "Back", Vector2(67.6, 244.6))
 	_add_key(0xBC, ",", Vector2(260.5, 221.2))
@@ -521,31 +557,6 @@ func _add_key(virtual_key: int, label: String, resource_position: Vector2) -> vo
 	}
 
 
-func _highlight_size(virtual_key: int) -> Vector2:
-	match virtual_key:
-		0x20:
-			return Vector2(116, 14)
-		0x08:
-			return Vector2(39, 14)
-		0x0D, 0xA0:
-			return Vector2(45, 14)
-		0x14:
-			return Vector2(38, 14)
-		0x09:
-			return Vector2(23, 9)
-		0xDC:
-			return Vector2(34, 14)
-		0x5B:
-			return Vector2(20, 10)
-		0x26, 0x28:
-			return Vector2(20, 8)
-		0x25, 0x27:
-			return Vector2(25, 14)
-		_:
-			return Vector2(26, 14)
-
-
-
 func _is_key_active(virtual_key: int) -> bool:
 	if _held_keys.has(virtual_key):
 		return true
@@ -570,13 +581,13 @@ func _load_png_texture(path: String) -> Texture2D:
 
 ## 键盘贴图。
 ##
-## 这里原本每次启动都逐像素扫一遍 612x354 的图，把桌面那块蓝色（#90c5e6）换成粉色
-## （#f6dce3）—— 21.6 万次 GDScript 循环。实测删掉它之后舞台创建从 468.5ms 降到
-## 399.5ms，也就是这个循环本身约占 70ms。（我原先以为那 468ms 基本都是它，实测证明不是；
-## 剩下那 400ms 已经查过了，结论记在文件末尾的「启动开销」一节。）
-## 需要换色的只有 9873 个像素（4.6%），而且换法是固定的，完全可以在出图时烘进 PNG。
-## 现在贴图已经是换好色的成品，直接加载即可；蓝桌面的原图留在
-## docs/source-assets/input-reaction-drafts/nairin_keyboard_original_blue_desk.png。
+## 贴图是 tools/gen_keyboard.py 生成的：键位读本文件的 _add_key，透视按字母数字四排
+## 拟合，键帽、字母、手绘抖动全部几何生成。要改颜色或字号就改那个脚本再重跑，别手动
+## P 图 —— 它同时还生成 KEY_SHAPES（按键高光的四角），两者必须同源。
+##
+## 更早的版本是从 ayangweb/Awesome-BongoCat 拿来的图改色而成，还在运行时逐像素扫
+## 21.6 万次把桌面刷成粉色（后来烘进 PNG，省了约 70ms）。那张图没有许可证，
+## docs/keyboard-research.md 当初就写了「公开发行建议重画」，现在算是还了那笔账。
 func _load_keyboard_texture() -> Texture2D:
 	var texture := ResourceLoader.load(KEYBOARD_TEXTURE_PATH) as Texture2D
 	if texture == null:
@@ -593,7 +604,6 @@ func _now() -> float:
 #
 # 这个节点创建时约耗 400ms，逐块实测过了：
 #
-#   字体 MSYHBD.TTC          112.3 ms   （重复 load 仍是 112.1 ms，缓存不生效）
 #   爪子 paw_round_v3 1254²   21.6 ms
 #   鼠标贴图 1536x1024        18.8 ms
 #   爪子 paw_turn 815x720     13.5 ms
@@ -603,15 +613,16 @@ func _now() -> float:
 #
 # 对照：load("res://scenes/main.tscn") 本身 565.9 ms，instantiate() 另加 161.1 ms。
 #
-# 两个反直觉的地方：键位表构建和本节点的 _ready 各只要 5~6ms，都很便宜，不值得优化；
-# 真正的大头是字体，而且它被 6 处引用（三个主题 + 两个界面场景 + 这里的键帽标签）。
+# 上表原本还有一项「字体 MSYHBD.TTC 112.3 ms」，是本节点最大的一笔。键帽上的字改成
+# 由 tools/gen_keyboard.py 烘进贴图之后，这里不再加载字体，那 112ms 没了 —— 本节点
+# 的创建开销从约 400ms 降到约 290ms。
 #
-# 字体慢的原因就是体积：fonts/MSYH.TTC 18.8 MB + MSYHBD.TTC 16.1 MB，两个完整的
-# 微软雅黑，各带两万多个字形。
+# 反直觉的地方：键位表构建和本节点的 _ready 各只要 5~6ms，都很便宜，不值得优化。
 #
-# 唯一有实质收益的办法是字体子集化（只保留实际用到的字符，35MB 可压到几百 KB，
-# 顺带安装包也小几十 MB）。**已决定不做**，原因是 Doro 的人设 prompt 是用户可以
-# 自由编辑的文本框 —— 字符集没有上界，用户往里写什么字都可能。子集之外的字会显示成
-# 方框，这个代价不可接受。这不是「风险较小可以接受」，是方案在这个场景下不成立。
+# 字体本身仍然是整个程序启动的大头，只是不在这个节点了 —— fonts/MSYH.TTC 18.8 MB +
+# MSYHBD.TTC 16.1 MB，两个完整的微软雅黑，各带两万多个字形，还有 5 处引用
+# （三个主题 + 两个界面场景）。
 #
-# 所以启动多等的这 0.4 秒是明知代价后接受的，不要再来优化它。
+# 字体子集化（只留用到的字符，35MB 可压到几百 KB）**在界面那几处也不成立**：
+# Doro 的人设 prompt 是用户可以自由编辑的文本框，字符集没有上界，子集之外的字会
+# 显示成方框。别再来优化这个方向。

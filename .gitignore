@@ -13,6 +13,10 @@ config.ini
 # Godot 资源导入缓存（本地生成，不入库）
 *.import
 
+# Python 工具的字节码缓存（tools/gen_keyboard.py）
+__pycache__/
+*.pyc
+
 # C# 构建中间产物（本地构建，不入库；helpers/DoroInputBridge.exe 为运行时需要的功能产物，保留入库）
 helpers/bin/
 helpers/obj/

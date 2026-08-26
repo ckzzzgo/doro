@@ -5,16 +5,16 @@
 
 运行时真正加载的贴图一律在 `images/` 下。
 
-## keyboard-mode-naier/
+## 关于「乃琳 · 键盘模式」参考素材（已删除）
 
-来自 [Awesome-BongoCat](https://github.com/ayangweb/Awesome-BongoCat) 的「乃琳 · 键盘模式」
-Live2D 模型，当初用作打字模式的键盘结构参考（见 `../keyboard-research.md`）。
+打字模式的键盘结构，当初参考的是 [Awesome-BongoCat](https://github.com/ayangweb/Awesome-BongoCat)
+里的乃琳 Live2D 模型（88 个文件）。那个仓库没有任何许可证，`keyboard-research.md`
+当时就写了「如果公开发行，建议仅参考结构后重画」。
 
-原先它以「乃琳 · 键盘模式」为名放在项目根目录，并且 `export_presets.cfg` 把其中
-两个文件打进了安装包 —— 但代码里从来没有任何地方加载它，属于白打包。移到这里的同时
-去掉了那两条导出项。
+2026-08-26 键盘贴图改由 `tools/gen_keyboard.py` 纯几何生成之后，这批参考素材没有
+留存的理由了，连同被它改色而来的 `nairin_keyboard_original_blue_desk.png` 一并删除。
 
-另一个动机是那个目录名带空格和 `·`，非 ASCII 路径穿过命令行构建链是自找麻烦。
+注意：**git 历史里还有**。真要彻底清掉得改写历史（git filter-repo），那是另一件事。
 
 ## mouse-drafts/
 
