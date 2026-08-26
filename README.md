@@ -92,7 +92,10 @@
 
 # ⚠️ 版权
 
-本项目基于 [GPL-3.0](./LICENSE) 协议开源，衍生自 [MelanTech/Dororo](https://github.com/MelanTech/Dororo)（同为 GPL-3.0）。请勿用于商业用途。
+本项目基于 [GPL-3.0](./LICENSE) 协议开源，衍生自 [MelanTech/Dororo](https://github.com/MelanTech/Dororo)（同为 GPL-3.0）。
+
+我身上不是每一样东西都是这个项目做的 —— 模型、字体、插件各有各的来路和条件，
+都写在 [NOTICE](./NOTICE) 里了。要拿我去做别的东西，先翻一眼那个文件。
 
 # ❤️ 谢谢这些人
 

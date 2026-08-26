@@ -1,0 +1,152 @@
+Dororo 第三方组件与素材声明
+=============================
+
+本项目按 GPL-3.0 分发（见 LICENSE）。但项目里不是每一样东西都是本项目写的、
+也不是每一样都能按 GPL 往下传 —— 这个文件把来源和条件逐条列清楚，免得下游
+的人得自己去猜。
+
+写这份东西的时候尽量只写查得到的事实：能核实的标了怎么核实的，没核实的会
+说明。发现有出入请开 issue。
+
+最后更新：2026-08-26
+
+
+一、项目本体
+------------
+
+    代码、场景、脚本、以及本项目自己生成的美术素材
+    协议：GPL-3.0
+    衍生自：MelanTech/Dororo <https://github.com/MelanTech/Dororo>（同为 GPL-3.0）
+
+上游的著作权归 MelanTech 及其贡献者；本项目在其基础上继续开发。
+
+
+二、Doro Live2D 模型
+--------------------
+
+    路径：models/Doro/
+    作者：0x4682B4 <https://afdian.com/a/0x4682B4>
+    原作品：Dororong Live2D
+            <https://afdian.com/p/181458b4353211efa9f352540025c377>
+    状态：已获作者授权，随本项目按 GPL-3.0 分发（2026-08）
+
+一个容易误会的地方：models/Doro/Doro.vtube.json 里有一行
+
+    "WorkshopSharingForbidden": true
+
+那是 VTube Studio 创意工坊的开关，针对的是在那个平台上二次分享，跟本项目
+无关。作者已就本项目单独授权，按 GPL-3.0 走。
+
+角色 Doro 的形象源自游戏《胜利女神：NIKKE》。本项目是同人性质的衍生作品，
+与原作版权方无任何关联，也未使用游戏内的任何素材。
+
+
+三、Live2D Cubism（经 gd_cubism 引入）
+--------------------------------------
+
+    路径：addons/gd_cubism/
+    上游：MizunagiKB/gd_cubism <https://github.com/MizunagiKB/gd_cubism>
+    授权原文：addons/gd_cubism/LICENSE.adoc、LICENSE.en.adoc
+
+这一项是三层不同的授权叠在一起的，不能一句话概括：
+
+  1. gd_cubism 自身的代码
+     MIT，(c) 2023 MizunagiKB <mizukb@live.jp>
+     本仓库里 19 个 .cs / .gdshader 文件带 SPDX 头。
+
+  2. Live2D Cubism Native Framework
+     Live2D Open Software License
+     <https://www.live2d.com/eula/live2d-open-software-license-agreement_cn.html>
+
+  3. Live2D Cubism Core
+     Live2D Proprietary Software License（闭源）
+     <https://www.live2d.com/eula/live2d-proprietary-software-license-agreement_cn.html>
+
+第 3 层要特别说明：Cubism Core 是**静态链接**进 libgd_cubism.windows.release
+.x86_64.dll 的。也就是说本仓库里没有 Live2D 的专有代码（bin/ 目录被
+.gitignore 排除），但**发布的安装包里有**。
+
+这带来一个客观存在的张力：GPL-3.0 要求下游能改、能拆、能转授，而 Live2D 的
+专有协议禁止这三件事。上游 MelanTech/Dororo 面对完全相同的情况，本项目与其
+处理方式一致。这里如实记录，不作法律结论。
+
+想自己构建的人需要另行获取 gd_cubism 的编译产物，并自行接受 Live2D 的条款。
+
+
+四、其他 Godot 插件
+-------------------
+
+    addons/gd_data_binding/
+        上游：HotariTobu/gd-data-binding
+              <https://github.com/HotariTobu/gd-data-binding>
+        协议：CC0-1.0（授权原文：addons/gd_data_binding/LICENSE）
+
+    addons/gd_chathub/
+    addons/gd_uuid/
+        本项目原创（ckzzzgo），随项目按 GPL-3.0 分发。
+        放在 addons/ 下只是为了归类，不是外部依赖。
+
+
+五、字体
+--------
+
+    路径：fonts/MSYH.TTC、fonts/MSYHBD.TTC
+    名称：Microsoft YaHei / Microsoft YaHei UI，版本 6.31
+    版权：(c) 2024 Microsoft Corporation
+          Portions (c) 2024 Beijing Founder Electronics Co. Ltd.
+    商标：Microsoft YaHei 是微软集团的商标
+
+    **这两个文件不在本项目的 GPL-3.0 授权范围内。**
+
+字体内嵌的许可声明写着：允许在相应微软产品的许可范围内使用该字体来创建、
+显示和打印内容。使用者请自行参阅微软的字体许可条款：
+<http://www.microsoft.com/typography/fonts>
+
+字形部分由北京北大方正电子有限公司授权给微软（方正兰亭黑）。
+
+说明：这两个字体上游 MelanTech/Dororo 也一并携带。本项目沿用同样的处理。
+
+
+六、美术素材
+------------
+
+    images/icons/particle/heart.svg
+        来自阿里 iconfont（<https://www.iconfont.cn/>），SVG 里保留着该站
+        导出时写入的 t / p-id / class="icon" 属性。iconfont 上每个图标的
+        授权由各自上传者决定，本项目未能核实这一个的具体条款。
+
+    app_icon.png / app_icon.ico
+        改自 ibitsu_paint <https://x.com/ibitsu_paint> 的 Doro 鼠标指针
+        <https://x.com/ibitsu_paint/status/1788513498827518292>
+        （沿用上游 MelanTech/Dororo 的做法与致谢）
+
+    images/input_reaction/paw_round_v3.png
+    images/input_reaction/pink_mouse_rounded_perspective_v2.png
+    images/input_reaction/paw_turn_connected_v2.png
+    images/input_reaction/paw_press_connected_v2.png
+        由 OpenAI 图像模型生成的原始稿去背而来。生成稿留在
+        docs/source-assets/input-reaction-drafts/，其 PNG 内带 C2PA 内容
+        来源标记（digitalSourceType = trainedAlgorithmicMedia）。
+        纯 AI 生成物的著作权归属在各法域尚无定论，因此**不宣称**本项目对
+        这几张图拥有著作权，也无法保证它们能按 GPL-3.0 向下传递。
+
+    images/input_reaction/doro_keyboard.png
+        由 tools/gen_keyboard.py 纯几何生成，本项目原创。
+        更早的版本曾是 ayangweb/Awesome-BongoCat 素材的改色版，该仓库没有
+        任何许可证；2026-08-26 起改为自行生成，相关素材已从工作区和 git
+        历史中移除。经过：docs/keyboard-research.md。
+
+    docs/media/*.gif、docs/source-assets/mouse-drafts/
+        本项目自行录制 / 绘制。
+
+
+七、引擎与运行时
+----------------
+
+    Godot Engine 4.4.1 (Mono)        MIT
+    Godot.NET.Sdk                    MIT
+    .NET 8 基础类库                  MIT
+    helpers/ 下两个辅助程序          本项目原创（GPL-3.0），源码与构建脚本
+                                     均在仓库内（helpers/build_helpers.ps1）
+
+Dororo.csproj 未引入任何 NuGet 包。
