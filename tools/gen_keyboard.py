@@ -32,14 +32,11 @@
 """
 import argparse
 import io
-import json
 import math
 import os
 import random
 import re
 import sys
-
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 
 try:
     from PIL import Image, ImageDraw, ImageFont
@@ -408,6 +405,10 @@ def inject(path, table):
 
 
 def main():
+    # 在 main 里改 stdout，不在模块顶层 —— 顶层改的话，别的脚本 import 本模块来复用
+    # read_keys / WIDE 这些东西时，会连带把它自己的 stdout 换掉，然后原来那个被关掉，
+    # 后续 print 直接抛 ValueError。审查这份代码时被坑过两次。
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
     ap = argparse.ArgumentParser()
     ap.add_argument('--dry-run', action='store_true', help='只看结果，不写文件')
     args = ap.parse_args()
