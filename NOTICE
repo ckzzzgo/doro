@@ -136,8 +136,16 @@ Dororo 第三方组件与素材声明
         任何许可证；2026-08-26 起改为自行生成，相关素材已从工作区和 git
         历史中移除。经过：docs/keyboard-research.md。
 
-    docs/media/*.gif、docs/source-assets/mouse-drafts/
-        本项目自行录制 / 绘制。
+    docs/media/*.gif、docs/media/head.png
+        README 里的演示动图和横幅，来自上游 MelanTech/Dororo（GPL-3.0），
+        与其 assets/ 下的同名文件字节相同。是同一个 app、同一个模型的录屏，
+        沿用未作修改。将来会换成本项目自己录的。
+
+    docs/media/chat_settings.png
+        本项目自行截图（2026-08-26），Prompt 内容已打码。
+
+    docs/source-assets/mouse-drafts/
+        本项目自行绘制。
 
 
 七、引擎与运行时
