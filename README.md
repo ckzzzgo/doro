@@ -89,7 +89,7 @@
 
 # 📥 把我带回家
 
-去 [这里](https://github.com/ckzzzgo/dororo-release/releases) 下载最新版。
+去 [Releases](https://github.com/ckzzzgo/doro/releases/latest) 下载最新版。
 
 解压到随便哪个目录，双击 `dororo.exe` 就行。不需要装别的东西。
 

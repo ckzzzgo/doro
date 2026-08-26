@@ -2,17 +2,26 @@ extends Node
 
 ## 检查更新 / 自动更新。
 ##
-## 版本信息读的是公开发布仓库里的 version.json，不是源码仓库的 GitHub API：
-## 源码仓库是私有的，匿名请求它的 API 会返回 404（GitHub 对私有仓库故意不返回 403，
-## 以免泄露仓库是否存在），所以旧实现永远只会显示「无法获取最新版本」，
-## 而且提示语还把人往网络问题上引 —— 其实网络没有任何问题。
+## 版本信息读的是仓库根目录的 version.json，不是 GitHub 的 releases API。
 ##
-## 用 raw 地址而不是 GitHub API：raw 不需要任何凭据，也没有 API 那样明确的
-## 每小时 60 次匿名配额。但它同样有防滥用限流 —— 短时间内反复请求会返回 429，
-## 实测过。桌宠只在用户手动点检查更新时请求一次，正常使用撞不到，
-## 但代码仍需把 429 单独讲清楚，否则用户只会看到一个莫名的数字。
-const VERSION_URL := "https://raw.githubusercontent.com/ckzzzgo/dororo-release/main/version.json"
-const RELEASES_URL := "https://github.com/ckzzzgo/dororo-release/releases/latest"
+## 曾经有一版直接请求源码仓库的 GitHub API，那时仓库是私有的，匿名请求一律返回
+## 404（GitHub 对私有仓库故意不返回 403，以免泄露仓库是否存在），于是永远显示
+## 「无法获取最新版本」，提示语还把人往网络问题上引 —— 其实网络没毛病。
+## 仓库现在已经公开，那个具体障碍没有了，但仍然不走 API：
+##
+##   一是 version.json 里带安装包的 sha256，releases API 不提供，
+##     而一键更新要靠它校验下载完整性；
+##   二是 raw 地址没有 API 那样明确的每小时 60 次匿名配额。
+##
+## raw 也有防滥用限流，短时间内反复请求会返回 429，实测过。桌宠只在用户手动点
+## 检查更新时请求一次，正常使用撞不到，但代码仍需把 429 单独讲清楚，
+## 否则用户只会看到一个莫名的数字。
+##
+## 2026-08 起源码和发布合并到同一个仓库，这两个地址从 dororo-release 改到 doro。
+## 装了 1.4.4 及更早版本的机器仍在轮询旧地址，检查更新会失败（当时全网累计
+## 下载 43 次，基本只有作者和一位测试者，让他们手动下一次即可）。
+const VERSION_URL := "https://raw.githubusercontent.com/ckzzzgo/doro/main/version.json"
+const RELEASES_URL := "https://github.com/ckzzzgo/doro/releases/latest"
 
 ## 检查更新的网络超时。
 ##

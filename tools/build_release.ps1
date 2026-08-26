@@ -35,9 +35,10 @@ param(
     # 导出预设名，需与 export_presets.cfg 中的 name 一致
     [string]$Preset = "Windows Desktop",
 
-    # 公开的发布仓库。源码仓库是私有的，匿名请求它的 API 只会得到 404，
-    # 所以安装包与 version.json 都发到这个公开仓库，供「检查更新」匿名读取。
-    [string]$ReleaseRepo = "ckzzzgo/dororo-release",
+    # 发布仓库。2026-08 起源码和发布合并到同一个仓库 —— 以前分开是因为源码仓库
+    # 私有、匿名请求它的 API 只会得到 404，现在仓库已公开，没有再分两处的理由。
+    # 旧的 ckzzzgo/dororo-release 就地留着不动，不再往那儿发新版本。
+    [string]$ReleaseRepo = "ckzzzgo/doro",
 
     # 只组装不打 zip
     [switch]$SkipZip,
@@ -459,8 +460,8 @@ if (-not $SkipZip) {
     Write-Host ("     gh release create v{0} --repo {1} --title `"Dororo v{0}`" --notes-file <说明文件> `"{2}`"" -f `
         $version, $ReleaseRepo, $zipPath) -ForegroundColor DarkGray
     Write-Host ""
-    Write-Host "  2) 更新公开仓库里的 version.json —— 漏了这步，桌宠检查更新仍会说已是最新" -ForegroundColor DarkGray
-    Write-Host ("     把 {0} 提交到 {1} 的 main 分支根目录" -f (Join-Path $exportDir "version.json"), $ReleaseRepo) -ForegroundColor DarkGray
+    Write-Host "  2) 更新仓库根目录的 version.json —— 漏了这步，桌宠检查更新仍会说已是最新" -ForegroundColor DarkGray
+    Write-Host ("     把 {0} 覆盖到仓库根目录的 version.json 并提交" -f (Join-Path $exportDir "version.json")) -ForegroundColor DarkGray
     Write-Host ""
     Write-Host "  3) 源码仓库打 tag（可选，便于对应版本）" -ForegroundColor DarkGray
     Write-Host ("     git tag v{0} && git push origin v{0}" -f $version) -ForegroundColor DarkGray
