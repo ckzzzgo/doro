@@ -114,6 +114,18 @@ WIDE = {
 HALF_KEYS = {'\u2191', '\u2193'}
 ARROW_DIR = {'\u2190': 180.0, '\u2192': 0.0, '\u2191': -90.0, '\u2193': 90.0}
 
+# \u9017\u53f7\u548c\u53e5\u70b9\u6539\u6210\u77e2\u91cf\u753b\uff0c\u4e0d\u8d70\u5b57\u4f53\u3002
+#
+# \u5b57\u4f53\u91cc\u8fd9\u4e24\u4e2a\u5b57\u5f62\u672c\u6765\u5c31\u53ea\u6709\u4e24\u4e09\u4e2a\u50cf\u7d20\uff0c\u8d34\u56fe\u8fd8\u8981\u518d\u7f29\u5230\u7ea6 0.49 \u624d\u663e\u793a \u2014\u2014 \u6e32\u67d3\u51fa\u6765
+# \u662f\u4e24\u4e2a\u51e0\u4e4e\u4e00\u6837\u7684\u5c0f\u70b9\uff0c\u770b\u4e0d\u51fa\u8c01\u662f\u9017\u53f7\u8c01\u662f\u53e5\u70b9\u3002\u653e\u5927\u5b57\u53f7\u4e5f\u4e0d\u89e3\u51b3\uff1a\u90a3\u53ea\u4f1a\u5f97\u5230\u4e00\u4e2a
+# \u5de8\u5927\u7684\u70b9\uff0c\u800c\u4e14\u5f62\u72b6\u4ecd\u7136\u5206\u4e0d\u6e05\u3002
+#
+# \u81ea\u5df1\u753b\u5c31\u80fd\u628a\u533a\u522b\u505a\u51fa\u6765\uff1a\u53e5\u70b9\u662f\u4e2a\u6b63\u5706\uff0c\u9017\u53f7\u662f\u5706\u52a0\u4e00\u6761\u671d\u4e0b\u7684\u5c3e\u5df4\u3002\u5c3e\u5df4\u7684\u65b9\u5411\u5f97\u6cbf
+# \u952e\u76d8\u7684 row \u8f74\uff08\u8ddf\u7bad\u5934\u540c\u4e00\u4e2a\u9053\u7406\uff0c\u6295\u5f71\u5e26\u5207\u53d8\uff0c\u4e0d\u80fd\u62ff\u300c\u5782\u76f4\u300d\u5f53\u300c\u4e0b\u300d\uff09\u3002
+VECTOR_PUNCT = {',', '.'}
+PUNCT_R = 0.105                     # \u5706\u70b9\u534a\u5f84\uff0c\u76f8\u5bf9\u4e00\u4e2a\u952e\u5e3d\u5bbd
+PUNCT_TAIL = 3.2                    # \u9017\u53f7\u5c3e\u5df4\u957f\u5ea6\uff0c\u76f8\u5bf9\u5706\u70b9\u534a\u5f84
+
 # 拟合用的布局：只用字母数字四排，列位置是标准 QWERTY
 FIT_ROWS = {
     0: [('`', 0.5), ('1', 1.5), ('2', 2.5), ('3', 3.5), ('4', 4.5), ('5', 5.5),
@@ -354,6 +366,24 @@ def build(keys, proj, unproj):
                        fill=C_TEXT)
             continue
 
+        if lab in VECTOR_PUNCT:
+            # 圆点 +（逗号的）尾巴。尾巴沿 row 轴朝下，跟箭头同一个道理。
+            u_row, per_row = step(proj(col, row - 0.5), proj(col, row + 0.5))
+            _, per_col = step(proj(col - 0.5, row), proj(col + 0.5, row))
+            r = per_col * PUNCT_R * SS
+            ox, oy = cx * SS, cy * SS
+            if lab == ',':
+                # 尾巴画成一个从圆边收窄到一点的三角，比直线更像逗号
+                tx = ox + u_row[0] * r * PUNCT_TAIL
+                ty = oy + u_row[1] * r * PUNCT_TAIL
+                nx, ny = -u_row[1], u_row[0]
+                # 尾根一侧贴着圆、另一侧收窄，末端收成尖 —— 像逗号，不像蝌蚪
+                ld.polygon([(ox + nx * r * 0.95, oy + ny * r * 0.95),
+                            (ox - nx * r * 0.55, oy - ny * r * 0.55),
+                            (tx, ty)], fill=C_TEXT)
+            ld.ellipse([ox - r, oy - r, ox + r, oy + r], fill=C_TEXT)
+            continue
+
         pa, pb = proj(col - 0.5, row), proj(col + 0.5, row)
         ang = math.degrees(math.atan2(pb[1] - pa[1], pb[0] - pa[0]))
         edge = math.hypot(pb[0] - pa[0], pb[1] - pa[1])
@@ -363,11 +393,30 @@ def build(keys, proj, unproj):
         base = edge * (TEXT_1CH if len(lab) == 1 else TEXT_NCH)
         size = base * PUNCT_BOOST.get(lab, 1.0)
         txt = '\\' if lab == '\\\\' else lab
+        fnt = load_font(size * SS)
         # 描边按放大前的字号算。标点要的是「字形大一点」，不是「笔画粗一圈」——
         # 两个一起放大，句点就成了一块方疙瘩。
-        td.text((box / 2, box / 2), txt, font=load_font(size * SS), fill=C_TEXT,
-                anchor='mm', stroke_width=max(1, int(base * SS * 0.055)),
-                stroke_fill=C_TEXT)
+        sw = max(1, int(base * SS * 0.055))
+
+        # 按**墨迹**居中，不是按 anchor='mm'。
+        #
+        # anchor='mm' 是拿字体的行高（ascender/descender）算中点的，跟这个字形
+        # 实际占哪一块无关。字母的墨迹大致填满行高，所以看不出问题；可句点、逗号
+        # 的墨迹只贴在基线上那一小块，离行高中点很远 —— 字号一放大，偏移跟着放大，
+        # 句点就被顶到键帽边线外面去了。
+        #
+        # 所以先照常画一遍，量出墨迹的实际包围盒，再按那个包围盒的中心重画。
+        td.text((box / 2, box / 2), txt, font=fnt, fill=C_TEXT, anchor='mm',
+                stroke_width=sw, stroke_fill=C_TEXT)
+        ink = tmp.getbbox()
+        if ink:
+            dx = box / 2 - (ink[0] + ink[2]) / 2
+            dy = box / 2 - (ink[1] + ink[3]) / 2
+            if abs(dx) > 0.5 or abs(dy) > 0.5:
+                tmp = Image.new('RGBA', (box, box), (0, 0, 0, 0))
+                td = ImageDraw.Draw(tmp)
+                td.text((box / 2 + dx, box / 2 + dy), txt, font=fnt, fill=C_TEXT,
+                        anchor='mm', stroke_width=sw, stroke_fill=C_TEXT)
         tmp = tmp.rotate(-ang, resample=Image.BICUBIC, center=(box / 2, box / 2))
         lay.alpha_composite(tmp, (int(cx * SS - box / 2), int(cy * SS - box / 2)))
     img.alpha_composite(lay)
