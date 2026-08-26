@@ -10,8 +10,15 @@ config.ini
 # macOS
 .DS_Store
 
-# Godot 资源导入缓存（本地生成，不入库）
-*.import
+# Godot 的导入缓存目录（.godot/ 已在文件开头忽略）。
+#
+# 注意 *.import 本身**要入库**：它记着每个资源的 uid，而场景和 export_presets
+# 是按 uid 引用资源的。不入库的话别人 clone 下来 Godot 会重新生成一套新 uid，
+# 引用就断了 —— 之前 app_icon.png.import 没入库，全新 clone 直接报
+# "Unrecognized UID: uid://dnct8jchwvs7y"，导出的 exe 图标是错的。
+#
+# docs/ 下有 .gdignore，Godot 不会去导入，那里若还残留 .import 属历史僵尸，不入库。
+docs/**/*.import
 
 # Python 工具的字节码缓存（tools/gen_keyboard.py）
 __pycache__/
