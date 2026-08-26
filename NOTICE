@@ -24,13 +24,13 @@ Dororo 第三方组件与素材声明
 二、Doro Live2D 模型
 --------------------
 
-    路径：models/Doro/
+    路径：assets/models/Doro/
     作者：0x4682B4 <https://afdian.com/a/0x4682B4>
     原作品：Dororong Live2D
             <https://afdian.com/p/181458b4353211efa9f352540025c377>
     状态：已获作者授权，随本项目按 GPL-3.0 分发（2026-08）
 
-一个容易误会的地方：models/Doro/Doro.vtube.json 里有一行
+一个容易误会的地方：assets/models/Doro/Doro.vtube.json 里有一行
 
     "WorkshopSharingForbidden": true
 
@@ -90,7 +90,7 @@ Dororo 第三方组件与素材声明
 五、字体
 --------
 
-    路径：fonts/MSYH.TTC、fonts/MSYHBD.TTC
+    路径：assets/fonts/MSYH.TTC、assets/fonts/MSYHBD.TTC
     名称：Microsoft YaHei / Microsoft YaHei UI，版本 6.31
     版权：(c) 2024 Microsoft Corporation
           Portions (c) 2024 Beijing Founder Electronics Co. Ltd.
@@ -110,27 +110,27 @@ Dororo 第三方组件与素材声明
 六、美术素材
 ------------
 
-    images/icons/particle/heart.svg
+    assets/images/icons/particle/heart.svg
         来自阿里 iconfont（<https://www.iconfont.cn/>），SVG 里保留着该站
         导出时写入的 t / p-id / class="icon" 属性。iconfont 上每个图标的
         授权由各自上传者决定，本项目未能核实这一个的具体条款。
 
-    app_icon.png / app_icon.ico
+    assets/icons/app_icon.png / assets/icons/app_icon.ico
         改自 ibitsu_paint <https://x.com/ibitsu_paint> 的 Doro 鼠标指针
         <https://x.com/ibitsu_paint/status/1788513498827518292>
         （沿用上游 MelanTech/Dororo 的做法与致谢）
 
-    images/input_reaction/paw_round_v3.png
-    images/input_reaction/pink_mouse_rounded_perspective_v2.png
-    images/input_reaction/paw_turn_connected_v2.png
-    images/input_reaction/paw_press_connected_v2.png
+    assets/images/input_reaction/paw_round_v3.png
+    assets/images/input_reaction/pink_mouse_rounded_perspective_v2.png
+    assets/images/input_reaction/paw_turn_connected_v2.png
+    assets/images/input_reaction/paw_press_connected_v2.png
         由 OpenAI 图像模型生成的原始稿去背而来。生成稿留在
         docs/source-assets/input-reaction-drafts/，其 PNG 内带 C2PA 内容
         来源标记（digitalSourceType = trainedAlgorithmicMedia）。
         纯 AI 生成物的著作权归属在各法域尚无定论，因此**不宣称**本项目对
         这几张图拥有著作权，也无法保证它们能按 GPL-3.0 向下传递。
 
-    images/input_reaction/doro_keyboard.png
+    assets/images/input_reaction/doro_keyboard.png
         由 tools/gen_keyboard.py 纯几何生成，本项目原创。
         更早的版本曾是 ayangweb/Awesome-BongoCat 素材的改色版，该仓库没有
         任何许可证；2026-08-26 起改为自行生成，相关素材已从工作区和 git
