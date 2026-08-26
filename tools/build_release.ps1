@@ -40,6 +40,10 @@ param(
     # 旧的 ckzzzgo/dororo-release 就地留着不动，不再往那儿发新版本。
     [string]$ReleaseRepo = "ckzzzgo/doro",
 
+    # 导出阶段的看门狗阈值：产物已生成、而 Godot 的 CPU 时间连续这么多秒没增长，
+    # 就认定它卡在退出阶段，强制结束。设 45 秒是给正常的收尾留足余量。
+    [int]$ExportIdleKillSec = 45,
+
     # 只组装不打 zip
     [switch]$SkipZip,
 
@@ -67,6 +71,7 @@ function Took() {
 }
 function Ok([string]$msg)   { Write-Host ("     OK   " + $msg) -ForegroundColor Green }
 function Info([string]$msg) { Write-Host ("          " + $msg) -ForegroundColor DarkGray }
+function Warn([string]$msg) { Write-Host ("     警告  " + $msg) -ForegroundColor Yellow }
 function Fail([string]$msg) {
     Write-Host ""
     Write-Host ("失败：" + $msg) -ForegroundColor Red
@@ -176,6 +181,66 @@ $lines = [System.Collections.Generic.List[string]]::new()
 $script:quiet = 0
 $beat = [System.Diagnostics.Stopwatch]::StartNew()
 
+# 开跑前清掉上一轮留下的进程。
+#
+# 这些进程会锁住 %APPDATA%\Godot\app_userdata\Dororo\logs\godot.log，
+# 后面第 6 步要删那个文件，删不掉整个构建就失败（实测遇到过）。
+#
+# 只清「本脚本用的那个 Godot 可执行文件」和 dororo.exe —— 按可执行文件路径匹配，
+# 不按进程名，免得把用户自己开着的 Godot 编辑器一起杀了。
+# 先删掉上一轮的产物。
+#
+# 这是下面看门狗那条「产物已生成」判定的前提：旧文件若还在，条件从第 0 秒就成立，
+# 而 Godot 编译 C# 的那几分钟父进程 CPU 可能不动（活是子进程 dotnet 在干），
+# 看门狗会误杀一个健康的构建。删掉之后「产物存在」才真正等于「本次写完了」。
+#
+# 顺带让后面那条「导出没有产出 exe/pck」的检查变得可信 —— 否则它可能在看上一轮的文件。
+foreach ($old in @($stageExe, $stagePck)) {
+    if (Test-Path $old) { Remove-Item $old -Force -ErrorAction SilentlyContinue }
+}
+
+$godotLeaf = [System.IO.Path]::GetFileNameWithoutExtension($Godot)
+$stale = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
+    $_.ProcessName -eq $godotLeaf -or $_.ProcessName -eq 'dororo'
+})
+if ($stale.Count -gt 0) {
+    Info ("清掉 {0} 个上一轮残留的进程（会锁住日志文件）" -f $stale.Count)
+    $stale | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+}
+$preGodotIds = @(Get-Process -Name $godotLeaf -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
+
+# 导出期间的看门狗。
+#
+# 导出那一行是同步管道调用，Godot 一旦不退出就是无限等 —— 实测遇到过：导出其实
+# 已经写完（savepack: end 都打了），进程却挂在退出阶段，CPU 时间 0、内存 3.4 MB、
+# 空转 6 分半，只能人工杀。
+#
+# 不能简单套个总时限：Godot 内部编译 C# 那几分钟一行输出都没有，正常也可能跑十几
+# 分钟，硬超时会误杀健康的构建。这里认的是那个卡死的确切特征 ——
+#   产物 exe/pck 都已经生成（说明该干的活干完了）
+#   而且进程的 CPU 时间连续 $ExportIdleKillSec 秒没有增长（说明它没在干活）
+# 两条同时成立才动手。只杀本次新起的进程（$preGodotIds 之外的），不碰别的。
+$watchdog = Start-Job -ScriptBlock {
+    param($leaf, $exe, $pck, $idleLimit, $skipIds)
+    $lastCpu = $null
+    $idle = 0
+    while ($true) {
+        Start-Sleep -Seconds 5
+        $p = @(Get-Process -Name $leaf -ErrorAction SilentlyContinue |
+               Where-Object { $skipIds -notcontains $_.Id }) | Select-Object -First 1
+        if (-not $p) { return 'exited' }                  # 自己退了，正常
+        if (-not (Test-Path $exe) -or -not (Test-Path $pck)) { $idle = 0; continue }
+        $cpu = $p.CPU
+        if ($null -ne $lastCpu -and $cpu -eq $lastCpu) { $idle += 5 } else { $idle = 0 }
+        $lastCpu = $cpu
+        if ($idle -ge $idleLimit) {
+            Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
+            return ('killed after {0}s idle' -f $idle)
+        }
+    }
+} -ArgumentList $godotLeaf, $stageExe, $stagePck, $ExportIdleKillSec, $preGodotIds
+
 & $Godot --headless --path . --export-release $Preset $stageExe 2>&1 | ForEach-Object {
     $line = ([string]$_).TrimEnd()
     $lines.Add($line)
@@ -201,6 +266,19 @@ $beat = [System.Diagnostics.Stopwatch]::StartNew()
     }
 }
 if ($script:quiet -gt 0) { Write-Host ("     |  …（另有 {0} 行细节已折叠）" -f $script:quiet) -ForegroundColor DarkGray }
+
+# 收看门狗。它若真出手过，要说出来 —— 那说明这次构建靠外力才走下去，
+# 产物本身通常是好的（判定条件就是「产物已生成」），但这事得让人知道。
+$wdResult = $null
+if ($watchdog) {
+    Stop-Job $watchdog -ErrorAction SilentlyContinue | Out-Null
+    $wdResult = Receive-Job $watchdog -ErrorAction SilentlyContinue
+    Remove-Job $watchdog -Force -ErrorAction SilentlyContinue | Out-Null
+}
+if ($wdResult -like 'killed*') {
+    Warn ("Godot 导出完之后没有自己退出，看门狗强制结束了它（{0}）。" -f $wdResult)
+    Warn "产物已生成，后面的检查照常进行；这属于 Godot 的退出问题，不影响包本身。"
+}
 
 $log = $lines -join "`n"
 
@@ -460,6 +538,23 @@ if (-not $SkipZip) {
     Write-Host ("     gh release create v{0} --repo {1} --title `"Dororo v{0}`" --notes-file <说明文件> `"{2}`"" -f `
         $version, $ReleaseRepo, $zipPath) -ForegroundColor DarkGray
     Write-Host ""
+    # 防呆：根目录已有的清单若版本相同但 sha256 不同，说明线上挂的是另一个 zip。
+    # 直接复制会让清单和线上附件的校验和对不上，一键更新下载完会拒绝安装。
+    $rootVer = Join-Path $root "version.json"
+    if (Test-Path $rootVer) {
+        try {
+            $oldJson = Get-Content $rootVer -Raw | ConvertFrom-Json
+            $newJson = Get-Content (Join-Path $exportDir "version.json") -Raw | ConvertFrom-Json
+            if ($oldJson.version -eq $newJson.version -and
+                $oldJson.package.sha256 -ne $newJson.package.sha256) {
+                Write-Host ""
+                Warn ("根目录已有 v{0} 的清单，但 sha256 与刚打的包不同。" -f $oldJson.version)
+                Warn "zip 带时间戳，同一份代码每次打包字节都不同 —— 这说明线上挂的是另一个 zip。"
+                Warn "别直接复制：要么重新上传刚打的这个包，要么保留根目录那份不动。"
+            }
+        } catch { }
+    }
+
     Write-Host "  2) 更新仓库根目录的 version.json —— 漏了这步，桌宠检查更新仍会说已是最新" -ForegroundColor DarkGray
     Write-Host ("     把 {0} 覆盖到仓库根目录的 version.json 并提交" -f (Join-Path $exportDir "version.json")) -ForegroundColor DarkGray
     Write-Host ""
