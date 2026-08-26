@@ -30,11 +30,11 @@ const RETURN_POSE_RATE := 15.0
 const REST_SNAP_DISTANCE := 0.7
 const REST_SNAP_ROTATION := 0.01
 
-const KEYBOARD_IDLE_PAW_TEXTURE_PATH := "res://images/input_reaction/paw_round_v3.png"
-const PAW_TURN_TEXTURE_PATH := "res://images/input_reaction/paw_turn_connected_v2.png"
-const KEYBOARD_PRESS_PAW_TEXTURE_PATH := "res://images/input_reaction/paw_press_connected_v2.png"
-const MOUSE_IDLE_PAW_TEXTURE_PATH := "res://images/input_reaction/paw_round_v3.png"
-const MOUSE_PRESS_PAW_TEXTURE_PATH := "res://images/input_reaction/paw_press_connected_v2.png"
+const KEYBOARD_IDLE_PAW_TEXTURE_PATH := "res://assets/images/input_reaction/paw_round_v3.png"
+const PAW_TURN_TEXTURE_PATH := "res://assets/images/input_reaction/paw_turn_connected_v2.png"
+const KEYBOARD_PRESS_PAW_TEXTURE_PATH := "res://assets/images/input_reaction/paw_press_connected_v2.png"
+const MOUSE_IDLE_PAW_TEXTURE_PATH := "res://assets/images/input_reaction/paw_round_v3.png"
+const MOUSE_PRESS_PAW_TEXTURE_PATH := "res://assets/images/input_reaction/paw_press_connected_v2.png"
 
 # ---- 贴图实测数据（由素材透明像素边界测得，单位：源像素）----
 # 按压爪 710x720：腕口切面在贴图顶边，中心 x=+49，外轮廓半宽 224，轮廓粗 21；

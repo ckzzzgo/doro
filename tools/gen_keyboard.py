@@ -5,7 +5,7 @@
     py -3 tools/gen_keyboard.py --dry-run  # 只看结果，不写任何文件
 
 产出两样，二者必须同源，否则高光会跟画上去的键错位：
-    images/input_reaction/doro_keyboard.png     键盘贴图（612x354，带透明底）
+    assets/images/input_reaction/doro_keyboard.png     键盘贴图（612x354，带透明底）
     input_stage_v3.gd 里的 KEY_SHAPES           每个键帽的四角，高光照它描边
 
 为什么要有这个脚本
@@ -45,7 +45,7 @@ except ImportError:
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GD = os.path.join(ROOT, 'scripts', 'gd', 'interact', 'input_stage_v3.gd')
-OUT_PNG = os.path.join(ROOT, 'images', 'input_reaction', 'doro_keyboard.png')
+OUT_PNG = os.path.join(ROOT, 'assets', 'images', 'input_reaction', 'doro_keyboard.png')
 
 # ---------------------------------------------------------------- 画面参数
 W, H = 612, 354

@@ -1,6 +1,6 @@
 extends Node2D
 
-const KEYBOARD_TEXTURE_PATH := "res://images/input_reaction/doro_keyboard.png"
+const KEYBOARD_TEXTURE_PATH := "res://assets/images/input_reaction/doro_keyboard.png"
 const KEYBOARD_SOURCE_SIZE := Vector2(612, 354)
 const KEYBOARD_CENTER := Vector2(107, 66)
 const KEYBOARD_SCALE := 0.68
@@ -82,7 +82,7 @@ const KEY_SHAPES := {
 	0x26: [Vector2(7.3, 5.2), Vector2(-17.2, 0.8), Vector2(-7.3, -5.2), Vector2(17.2, -0.8)],  # ↑
 }
 
-const MOUSE_TEXTURE_PATH := "res://images/input_reaction/pink_mouse_rounded_perspective_v2.png"
+const MOUSE_TEXTURE_PATH := "res://assets/images/input_reaction/pink_mouse_rounded_perspective_v2.png"
 const MOUSE_SOURCE_SIZE := Vector2(1536, 1024)
 const MOUSE_CENTER := Vector2(-200, 90)
 const MOUSE_SCALE := 0.14
@@ -619,7 +619,7 @@ func _now() -> float:
 #
 # 反直觉的地方：键位表构建和本节点的 _ready 各只要 5~6ms，都很便宜，不值得优化。
 #
-# 字体本身仍然是整个程序启动的大头，只是不在这个节点了 —— fonts/MSYH.TTC 18.8 MB +
+# 字体本身仍然是整个程序启动的大头，只是不在这个节点了 —— assets/fonts/MSYH.TTC 18.8 MB +
 # MSYHBD.TTC 16.1 MB，两个完整的微软雅黑，各带两万多个字形，还有 5 处引用
 # （三个主题 + 两个界面场景）。
 #

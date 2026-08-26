@@ -13,8 +13,8 @@ extends Panel
 ## 版式仿微信：她的话靠左并配圆头像，人的话靠右不配头像。两边气泡用同一份样式 ——
 ## 区分靠位置和头像，不靠颜色，这样配色上不会花。
 
-const BUBBLE_STYLE := preload("res://themes/pink_bubble.tres")
-const AVATAR := preload("res://images/ui/avatar_doro.png")
+const BUBBLE_STYLE := preload("res://assets/themes/pink_bubble.tres")
+const AVATAR := preload("res://assets/images/ui/avatar_doro.png")
 
 ## 气泡最多占内容区宽度的这个比例。短句会自己收窄，只有长句才铺到上限再换行。
 const BUBBLE_MAX_RATIO := 0.66

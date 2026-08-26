@@ -33,9 +33,9 @@
 
 ### 可下载的建模参考
 
-- [Mechanical Keyboard – Aesthetic](https://sketchfab.com/3d-models/mechanical-keyboard-aesthetic-44bb12d306864e2cb4256a61d4168942)：免费的 CC BY 模型。淡紫外壳、奶白键帽、薄荷绿和粉色强调键，适合 Doro；属于紧凑布局。
-- [Full QWERTY Keyboard](https://sketchfab.com/3d-models/keyboard-4dba18a6157a49fbb22d26b22a9e6cbb)：完整全尺寸布局，按键几何体相互分离，适合制作逐键下沉动画；CC BY。
-- [Mouse and Keyboard](https://sketchfab.com/3d-models/mouse-and-keyboard-d91b625d38a64ed39c1dfaef28e588d7)：统一风格的键鼠组合，CC BY，可下载后改成粉色；键盘为 60% 布局。
+- [Mechanical Keyboard – Aesthetic](https://sketchfab.com/3d-assets/models/mechanical-keyboard-aesthetic-44bb12d306864e2cb4256a61d4168942)：免费的 CC BY 模型。淡紫外壳、奶白键帽、薄荷绿和粉色强调键，适合 Doro；属于紧凑布局。
+- [Full QWERTY Keyboard](https://sketchfab.com/3d-assets/models/keyboard-4dba18a6157a49fbb22d26b22a9e6cbb)：完整全尺寸布局，按键几何体相互分离，适合制作逐键下沉动画；CC BY。
+- [Mouse and Keyboard](https://sketchfab.com/3d-assets/models/mouse-and-keyboard-d91b625d38a64ed39c1dfaef28e588d7)：统一风格的键鼠组合，CC BY，可下载后改成粉色；键盘为 60% 布局。
 - [Kenney Input Prompts](https://kenney.nl/knowledge-base/game-assets-2d/using-input-prompts)：CC0 的 PNG/SVG 键帽与鼠标输入图标，适合补齐字符或特殊键。
 
 ### 推荐组合
@@ -49,7 +49,7 @@ Awesome-BongoCat 模型仓库没有为所有美术素材统一标明开放许可
 
 > **2026-08-26 后记：上面这条已经执行了。**
 >
-> 在此之前发布的版本里，`images/input_reaction/nairin_keyboard.png` 其实是把
+> 在此之前发布的版本里，`assets/images/input_reaction/nairin_keyboard.png` 其实是把
 > Awesome-BongoCat 的 `resources/background.png` 桌面改了个色（#90c5e6 → #f6dce3），
 > 其余 92.57% 的像素原样 —— 属于「改色」而不是「重画」，没做到这条建议。
 >

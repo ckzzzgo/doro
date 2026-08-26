@@ -130,7 +130,7 @@ foreach ($h in @("helpers\DoroInputBridge.exe", "helpers\DoroUpdater.exe")) {
 }
 Ok "辅助程序就位（输入桥 / 更新助手）"
 
-$icon = "app_icon.ico"
+$icon = "assets/icons/app_icon.ico"
 if (-not (Test-Path $icon)) { Fail "缺少图标文件：$icon" }
 
 # 版本号以 project.godot 为准，避免脚本里再抄一遍

@@ -17,7 +17,7 @@ extends SceneTree
 ## 注意它仍有误报，别拿结果直接删：
 ##   addons/ 里的文件按 class_name / extends 互相引用，这里看不出来
 ##   LICENSE、README、csproj 这类本来就不是被引用的资源
-##   app_icon.ico 之类由构建脚本（而非 Godot）使用的文件
+##   assets/icons/app_icon.ico 之类由构建脚本（而非 Godot）使用的文件
 ## 真要删，先把文件移走跑一遍，确认没有缺资源报错再动手。
 
 const SKIP_DIRS := ["res://.godot", "res://export", "res://docs", "res://tools"]
