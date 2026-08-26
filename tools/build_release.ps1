@@ -272,12 +272,14 @@ Copy-Item $cubism -Destination $outDir
 #   DoroUpdater      自动更新时替换安装目录（由主程序拷到 user:// 下再启动）
 Copy-Item "helpers\DoroInputBridge.exe" -Destination $outDir
 Copy-Item "helpers\DoroUpdater.exe" -Destination $outDir
+# GPL-3.0 第 4 条：分发二进制必须附带协议原文。以前 zip 里没有，是实打实的不合规。
+Copy-Item "LICENSE" -Destination $outDir
 
-foreach ($f in @('dororo.exe','dororo.pck','libgd_cubism.windows.release.x86_64.dll','DoroInputBridge.exe','DoroUpdater.exe')) {
+foreach ($f in @('dororo.exe','dororo.pck','libgd_cubism.windows.release.x86_64.dll','DoroInputBridge.exe','DoroUpdater.exe','LICENSE')) {
     if (-not (Test-Path (Join-Path $outDir $f))) { Fail "组装后缺少 $f" }
 }
 $fileCount = (Get-ChildItem $outDir -File).Count
-if ($fileCount -ne 5) { Fail "组装结果应为 5 个文件，实得 $fileCount 个" }
+if ($fileCount -ne 6) { Fail "组装结果应为 6 个文件，实得 $fileCount 个" }
 Ok ("{0} 个文件，{1} MB" -f $fileCount,
     [Math]::Round(((Get-ChildItem $outDir -File -Recurse | Measure-Object Length -Sum).Sum / 1MB), 0))
 
@@ -406,7 +408,7 @@ if ($SkipZip) {
     $z = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
     try {
         $names = $z.Entries | ForEach-Object { $_.FullName }
-        foreach ($f in @('dororo.exe','dororo.pck','libgd_cubism.windows.release.x86_64.dll','DoroInputBridge.exe','DoroUpdater.exe')) {
+        foreach ($f in @('dororo.exe','dororo.pck','libgd_cubism.windows.release.x86_64.dll','DoroInputBridge.exe','DoroUpdater.exe','LICENSE')) {
             if ($names -notcontains "$pkgName/$f") { Fail "zip 内缺少 $f" }
         }
         Ok ("{0} 个条目，{1} MB" -f $z.Entries.Count, [Math]::Round((Get-Item $zipPath).Length / 1MB, 1))
