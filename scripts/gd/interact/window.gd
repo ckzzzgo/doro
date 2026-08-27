@@ -1,6 +1,7 @@
 extends Node2D
 
 const DoroLog = preload("res://scripts/gd/utils/debug_log.gd")
+const EnterExitEffect = preload("res://scripts/gd/interact/enter_exit.gd")
 
 @export var enable_window_drag:bool = true
 @export var enable_docking: bool = true
@@ -43,6 +44,8 @@ var _drag_hover_lost_frames: int = 0
 
 var fullscreen_check_timer = Timer.new()
 var is_other_app_fullscreen = false
+## 入场 / 退场（从屏幕边缘跑进跑出）。托盘的退出和全屏隐藏都要用，见 enter_exit.gd。
+var enter_exit: EnterExitEffect
 
 signal window_scale_changed
 signal window_pos_changed
@@ -56,6 +59,7 @@ func _ready() -> void:
 	set_up_fullscreen_detector()
 	update_window()
 	keep_child_windows_out_of_taskbar()
+	set_up_enter_exit()
 
 ## 设置窗、聊天记录窗、对话气泡都是独立的 OS 窗口，各自显示时会在任务栏登记一个
 ## 按钮 —— 桌宠不该在任务栏露面。WindowManager 的初始化只管主窗口，这三个得单独
@@ -74,6 +78,26 @@ func keep_child_windows_out_of_taskbar() -> void:
 		else:
 			push_warning("找不到子窗口 %s，它可能会在任务栏留下按钮" % path)
 
+
+## 建入场 / 退场效果，并立刻播一次入场。
+##
+## 放在 _ready 末尾：位置要等 load_config 恢复完、update_window 把停靠也处理完，
+## 那个值才是她该跑回去的「家」。run_in 会在同一帧里先把窗口挪到屏幕外再起 Tween，
+## 所以不会出现「先在终点闪一下再跑」。
+##
+## 节点是代码建的而不是摆在场景里：这样 main.tscn 不用动，跟 input_reaction 建
+## DeskKeyboardMouse 是一个路子。
+func set_up_enter_exit() -> void:
+	enter_exit = EnterExitEffect.new()
+	enter_exit.name = "EnterExit"
+	enter_exit.window = self
+	enter_exit.model = model
+	enter_exit.anim_controller = anim_controller
+	enter_exit.move_effect = $GDCubismUserModel/Animation/EffectMove
+	enter_exit.rand_move = $GDCubismUserModel/Animation/EffectMove/EffectRandMove
+	add_child(enter_exit)
+	enter_exit.run_in(get_tree().root.position)
+
 	add_child(docking_time_counter)
 
 func _process(delta: float) -> void:
@@ -85,7 +109,9 @@ func _input(event: InputEvent) -> void:
 	# 桌宠移开，不会在打字时被挡住屏幕。输入模式下仍跳过停靠/滚轮缩放等。
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
-			if enable_window_drag:
+			# 入场 / 退场跑动期间不接管拖拽：那 1~2 秒里 Tween 每帧都在写窗口位置，
+			# 拖拽也在写，两边打架的结果是她粘在鼠标上抽搐，松手又被拽回去。
+			if enable_window_drag and not (enter_exit and enter_exit.is_playing()):
 				var move_effect: MoveEffect = $GDCubismUserModel/Animation/EffectMove
 				var rand_move = $GDCubismUserModel/Animation/EffectMove/EffectRandMove
 				if move_effect.is_moving:
