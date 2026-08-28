@@ -37,7 +37,6 @@ func _on_item_pressed(id: int) -> void:
 func _enter_exit():
 	return $"../..".enter_exit
 
-
 ## 藏起来：跑出屏幕之后才隐藏 + 暂停。
 ##
 ## 顺序不能反。get_tree().paused = true 会把 Tween 一起停掉 —— 先暂停的话她会卡死在
@@ -52,7 +51,6 @@ func _hide_with_run_out() -> void:
 	else:
 		_apply_hidden()
 
-
 ## 叫回来：先解除暂停、先显示，她才跑得动、也才看得见。
 func _show_with_run_in() -> void:
 	get_tree().paused = false
@@ -61,11 +59,9 @@ func _show_with_run_in() -> void:
 	if ee:
 		ee.run_in()
 
-
 func _apply_hidden() -> void:
 	$"../..".visible = false
 	get_tree().paused = true
-
 
 func _on_other_app_fullscreen(is_fullscreen):
 	if is_fullscreen:

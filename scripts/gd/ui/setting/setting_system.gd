@@ -77,7 +77,6 @@ func _migrate_auto_hide() -> void:
 	_config.save_config()
 	DoroLog.d("[DORO] 全屏自动隐藏：默认值改为开，已为老配置翻开一次")
 
-
 func _update_auto_start(name, value):
 	if value:
 		_auto_starter.EnableAutoStart(_app_name)

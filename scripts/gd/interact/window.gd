@@ -78,6 +78,7 @@ func keep_child_windows_out_of_taskbar() -> void:
 		else:
 			push_warning("找不到子窗口 %s，它可能会在任务栏留下按钮" % path)
 
+	add_child(docking_time_counter)
 
 ## 建入场 / 退场效果，并立刻播一次入场。
 ##
@@ -97,8 +98,6 @@ func set_up_enter_exit() -> void:
 	enter_exit.rand_move = $GDCubismUserModel/Animation/EffectMove/EffectRandMove
 	add_child(enter_exit)
 	enter_exit.run_in(get_tree().root.position)
-
-	add_child(docking_time_counter)
 
 func _process(delta: float) -> void:
 	dock_pop(delta)

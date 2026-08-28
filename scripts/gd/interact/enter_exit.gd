@@ -6,10 +6,11 @@ extends Node
 ## global_script_class_cache.cfg，而本项目是纯命令行 --headless --export-release
 ## 打包的，漏扫一次引用它的脚本会整批解析失败。调用方用 preload 拿。
 ##
-## 三个地方共用同一套动作，行为一致：
+## 四个地方共用同一套动作，行为一致：
 ##   启动          window.gd 在 _ready 末尾把窗口挪到屏幕外，再跑进来
 ##   退出          托盘 / 工具栏的「退出」，跑出去之后才真正 quit
 ##   别的程序全屏  tray.gd 收到 other_app_fullscreen，跑出去之后才隐藏
+##   手动隐藏      托盘菜单的「隐藏」，跟全屏走同一对函数
 ##
 ## 复用的是她本来就有的跑步动作（AnimationController.run()，随机走动用的也是它），
 ## 所以看上去跟她平时跑动是同一件事，不是新长出来的一段演出。
@@ -55,34 +56,30 @@ func is_playing() -> bool:
 	return _playing
 
 
-## 跑出屏幕外。跑完才调 after —— 退出、隐藏都得等它，不然人还没跑出去画面就没了。
-## 该不该跳过动画，直接办正事。
-##
-## 只有一种情况跳过：人根本不在画面上（已经手动隐藏、或被全屏藏了）。没有可演的，
+## 人根本不在画面上（已经手动隐藏、或被全屏藏了）时，没有可演的，跳过动画直接办正事。
 ## 还演就是让人干等 —— 实测在隐藏状态下点「退出」那次距离是 0，白等 0.35 秒。
 ##
-## 「别人全屏时也跳过」曾经在这里，后来按产品决定去掉了 —— 全屏时她照样跑走再消失。
+## 这里曾经还有一条「别人全屏时也跳过」，后来按产品决定去掉了：全屏时她照样跑走再消失。
 ## 如果哪天又有人反馈「全屏打游戏被弹回桌面」，**这里是第一个该怀疑的地方**：
 ##
 ##   这个窗口是置顶的（WindowManager 用 SetWindowPos + HWND_TOPMOST）。移动一个置顶
-##   窗口有可能把独占全屏的游戏挤出全屏。已知的一次现场是她在全屏游戏上面自己溜达
-##   时把游戏挤掉了（那次是「全屏自动隐藏」默认关着，她根本没在躲）—— 移动和被踢
-##   确实同时发生过，但没人复现验证过因果。
-##   而且全屏时画面被游戏占满，这段跑动多半没人看得见。
+##   窗口有可能把独占全屏的游戏挤出全屏。已知的一次现场是她在全屏游戏上面自己溜达时
+##   把游戏挤掉了（那次「全屏自动隐藏」默认关着，她根本没在躲）—— 移动和被踢确实同时
+##   发生过，但没人复现验证过因果，也没验证过全屏时这段跑动到底看不看得见。
 ##
-## 要退回去的话：把下面改成 `not window.visible or window.is_other_app_fullscreen`，
-## 再把 run_in 里那段「别人全屏就直接归位」的注释一并恢复。
+## 要退回去，改这一处就够：条件加回 `or window.is_other_app_fullscreen`，
+## 再在 run_in 开头补一段「别人全屏就直接把窗口摆到 target、调 after、return」。
 func _should_skip_animation() -> bool:
 	if window == null:
 		return false
 	return not window.visible
 
 
+## 跑出屏幕外。跑完才调 after —— 退出、隐藏都得等它，不然人还没跑出去画面就没了。
 func run_out(after := Callable()) -> void:
 	var root := get_tree().root
 	if _should_skip_animation():
-		DoroLog.d("[DORO] enter_exit 跳过退场（visible=%s 别人全屏=%s）t=%d"
-			% [window.visible, window.is_other_app_fullscreen, Time.get_ticks_msec()])
+		DoroLog.d("[DORO] enter_exit 跳过退场（人不在画面上）t=%d" % Time.get_ticks_msec())
 		if after.is_valid():
 			after.call()
 		return
@@ -98,17 +95,14 @@ func run_out(after := Callable()) -> void:
 
 
 ## 从屏幕外跑回来。rest 不给就用上次 run_out 记下的位置。
-func run_in(rest := Vector2i.ZERO, after := Callable()) -> void:
+##
+## 这边没有 _should_skip_animation 那道闸：调用入场的时候 window.visible 通常还是
+## false（正要把她显示出来），套用会被误判成「人不在画面上」，一律跳过。
+func run_in(rest := Vector2i.ZERO) -> void:
 	var root := get_tree().root
 	var target := rest
 	if target == Vector2i.ZERO:
 		target = _rest_pos if _has_rest else root.position
-	# 注意入场这边不能套用 _should_skip_animation：调用它的时候 window.visible 通常
-	# 还是 false（正要把她显示出来），会被误判成「不在画面上」而跳过。
-	#
-	# 而且入场跳过动画不等于「什么都不做」—— 必须把她放回原位，否则她留在屏幕外，
-	# 状态上显示出来了，人却看不见。以前这里有一段「别人全屏就直接归位」就是这么写的，
-	# 后来按产品决定去掉了（见 _should_skip_animation 的注释）。
 	# 只有「她本来就不在场上」才需要先瞬移到屏幕外。正跑到一半被叫回来的话，从当前
 	# 位置直接掉头就行 —— 瞬移会让她凭空跳一下。
 	#
@@ -117,7 +111,7 @@ func run_in(rest := Vector2i.ZERO, after := Callable()) -> void:
 		root.position = _offscreen_target(target, root.size)
 	_rest_pos = target
 	_has_rest = true
-	_play(target, after)
+	_play(target, Callable())
 
 
 ## 从 pos 出发，就近选左右边缘，算出「完全跑出屏幕」的落点。
