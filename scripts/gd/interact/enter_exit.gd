@@ -58,20 +58,24 @@ func is_playing() -> bool:
 ## 跑出屏幕外。跑完才调 after —— 退出、隐藏都得等它，不然人还没跑出去画面就没了。
 ## 该不该跳过动画，直接办正事。
 ##
-## 两种情况：
+## 只有一种情况跳过：人根本不在画面上（已经手动隐藏、或被全屏藏了）。没有可演的，
+## 还演就是让人干等 —— 实测在隐藏状态下点「退出」那次距离是 0，白等 0.35 秒。
 ##
-## 1. 人根本不在画面上（已经手动隐藏、或被全屏藏了）。没有可演的，还演就是让人干等
-##    —— 实测在隐藏状态下点「退出」那次距离是 0，白等 0.35 秒。
+## 「别人全屏时也跳过」曾经在这里，后来按产品决定去掉了 —— 全屏时她照样跑走再消失。
+## 如果哪天又有人反馈「全屏打游戏被弹回桌面」，**这里是第一个该怀疑的地方**：
 ##
-## 2. **别的程序正在独占全屏**。这条是 1.4.6 上线后炸出来的：这个窗口是置顶的
-##    （WindowManager 用 SetWindowPos + HWND_TOPMOST），一个置顶窗口在独占全屏的游戏
-##    上面持续重定位 1~2 秒，会把游戏踢出全屏 —— 用户正打着游戏被弹回桌面。
-##    1.4.6 之前检测到全屏是立刻 visible = false，窗口马上消失，所以没这个问题。
-##    何况那种时候画面被游戏占满，这段动画本来也没人看得到，纯赔本。
+##   这个窗口是置顶的（WindowManager 用 SetWindowPos + HWND_TOPMOST）。移动一个置顶
+##   窗口有可能把独占全屏的游戏挤出全屏。已知的一次现场是她在全屏游戏上面自己溜达
+##   时把游戏挤掉了（那次是「全屏自动隐藏」默认关着，她根本没在躲）—— 移动和被踢
+##   确实同时发生过，但没人复现验证过因果。
+##   而且全屏时画面被游戏占满，这段跑动多半没人看得见。
+##
+## 要退回去的话：把下面改成 `not window.visible or window.is_other_app_fullscreen`，
+## 再把 run_in 里那段「别人全屏就直接归位」的注释一并恢复。
 func _should_skip_animation() -> bool:
 	if window == null:
 		return false
-	return not window.visible or window.is_other_app_fullscreen
+	return not window.visible
 
 
 func run_out(after := Callable()) -> void:
@@ -99,18 +103,12 @@ func run_in(rest := Vector2i.ZERO, after := Callable()) -> void:
 	var target := rest
 	if target == Vector2i.ZERO:
 		target = _rest_pos if _has_rest else root.position
-	# 别人还在独占全屏时不跑（理由见 _should_skip_animation）。这里不能走那个函数：
-	# 入场时 window.visible 本来就是 false（正要把她显示出来），会被误判成「不在画面
-	# 上」。而且入场跳过动画不是「什么都不做」—— 得把她放回原位，否则她留在屏幕外，
-	# 人显示出来了却看不见。
-	if window and window.is_other_app_fullscreen:
-		DoroLog.d("[DORO] enter_exit 跳过入场（别人全屏）t=%d" % Time.get_ticks_msec())
-		root.position = target
-		_rest_pos = target
-		_has_rest = true
-		if after.is_valid():
-			after.call()
-		return
+	# 注意入场这边不能套用 _should_skip_animation：调用它的时候 window.visible 通常
+	# 还是 false（正要把她显示出来），会被误判成「不在画面上」而跳过。
+	#
+	# 而且入场跳过动画不等于「什么都不做」—— 必须把她放回原位，否则她留在屏幕外，
+	# 状态上显示出来了，人却看不见。以前这里有一段「别人全屏就直接归位」就是这么写的，
+	# 后来按产品决定去掉了（见 _should_skip_animation 的注释）。
 	# 只有「她本来就不在场上」才需要先瞬移到屏幕外。正跑到一半被叫回来的话，从当前
 	# 位置直接掉头就行 —— 瞬移会让她凭空跳一下。
 	#
