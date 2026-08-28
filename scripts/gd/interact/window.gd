@@ -511,6 +511,11 @@ func _set_dock_position(dir: int, peek: bool = false) -> void:
 
 func _check_other_app_fullscreen():
 	var state = windowManager.IsOtherAppFullscreen()
-	if state != is_other_app_fullscreen:
-		other_app_fullscreen.emit(state)
+	if state == is_other_app_fullscreen:
+		return
+	# 先落状态再发信号。原来反过来：接信号的人读 is_other_app_fullscreen 拿到的是**上
+	# 一次**的值，也就是「全屏了」的处理函数里读出来还是 false。
+	# enter_exit 要靠这个值判断该不该做动画（见那边的 _should_skip_animation），
+	# 顺序反了这道闸就是空的。
 	is_other_app_fullscreen = state
+	other_app_fullscreen.emit(state)

@@ -56,13 +56,29 @@ func is_playing() -> bool:
 
 
 ## 跑出屏幕外。跑完才调 after —— 退出、隐藏都得等它，不然人还没跑出去画面就没了。
+## 该不该跳过动画，直接办正事。
+##
+## 两种情况：
+##
+## 1. 人根本不在画面上（已经手动隐藏、或被全屏藏了）。没有可演的，还演就是让人干等
+##    —— 实测在隐藏状态下点「退出」那次距离是 0，白等 0.35 秒。
+##
+## 2. **别的程序正在独占全屏**。这条是 1.4.6 上线后炸出来的：这个窗口是置顶的
+##    （WindowManager 用 SetWindowPos + HWND_TOPMOST），一个置顶窗口在独占全屏的游戏
+##    上面持续重定位 1~2 秒，会把游戏踢出全屏 —— 用户正打着游戏被弹回桌面。
+##    1.4.6 之前检测到全屏是立刻 visible = false，窗口马上消失，所以没这个问题。
+##    何况那种时候画面被游戏占满，这段动画本来也没人看得到，纯赔本。
+func _should_skip_animation() -> bool:
+	if window == null:
+		return false
+	return not window.visible or window.is_other_app_fullscreen
+
+
 func run_out(after := Callable()) -> void:
 	var root := get_tree().root
-	# 人根本不在画面上（已经手动隐藏、或别的程序全屏把她藏了）时没有可演的，
-	# 直接办正事。不然在隐藏状态下点「退出」还要空等一段动画，而画面上什么都没发生
-	# —— 实测那次距离是 0，白白等 0.35 秒。
-	if window and not window.visible:
-		DoroLog.d("[DORO] enter_exit 已隐藏，跳过退场 t=%d" % Time.get_ticks_msec())
+	if _should_skip_animation():
+		DoroLog.d("[DORO] enter_exit 跳过退场（visible=%s 别人全屏=%s）t=%d"
+			% [window.visible, window.is_other_app_fullscreen, Time.get_ticks_msec()])
 		if after.is_valid():
 			after.call()
 		return
@@ -83,6 +99,18 @@ func run_in(rest := Vector2i.ZERO, after := Callable()) -> void:
 	var target := rest
 	if target == Vector2i.ZERO:
 		target = _rest_pos if _has_rest else root.position
+	# 别人还在独占全屏时不跑（理由见 _should_skip_animation）。这里不能走那个函数：
+	# 入场时 window.visible 本来就是 false（正要把她显示出来），会被误判成「不在画面
+	# 上」。而且入场跳过动画不是「什么都不做」—— 得把她放回原位，否则她留在屏幕外，
+	# 人显示出来了却看不见。
+	if window and window.is_other_app_fullscreen:
+		DoroLog.d("[DORO] enter_exit 跳过入场（别人全屏）t=%d" % Time.get_ticks_msec())
+		root.position = target
+		_rest_pos = target
+		_has_rest = true
+		if after.is_valid():
+			after.call()
+		return
 	# 只有「她本来就不在场上」才需要先瞬移到屏幕外。正跑到一半被叫回来的话，从当前
 	# 位置直接掉头就行 —— 瞬移会让她凭空跳一下。
 	#
