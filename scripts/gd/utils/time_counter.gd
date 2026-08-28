@@ -28,9 +28,6 @@ func get_count():
 func set_reset_time(value: float):
 	_reset_time = max(0, value)
 	
-func get_reset_time():
-	return _reset_time
-	
 func start():
 	_paused = false
 	

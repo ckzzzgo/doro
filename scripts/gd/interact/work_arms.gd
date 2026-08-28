@@ -29,8 +29,6 @@ const ROOT_IN_FRONT_OF_EDGE := 4.5
 # 手臂末端收窄范围：腕骨距桌沿小于此值开始变细，到桌沿（depth=0）缩成零；
 # 腕骨没入桌沿后沿后整条隐藏。腕点始终锚定爪子，不做位移插值，回收不脱节。
 const RETRACT_TAPER_DEPTH := 12.0
-const TABLE_EDGE_OVERLAP := 10.0
-const ARM_CONTACT_SHADOW_OFFSET := Vector2(1.4, 2.2)
 const ARM_CONTACT_SHADOW_COLOR := Color(0.34, 0.10, 0.15, 0.16)
 # 轮廓在腕口切面向贴图内侧的微小过冲（被前景贴图腕管遮住，保证不留缝）。
 const WRIST_OUTLINE_OVERSHOOT := -0.6
@@ -41,8 +39,6 @@ const EDGE_UNDERLAY_FRONT := 12.0
 const TABLE_BACK_LEFT := Vector2(-320, -20)
 const TABLE_BACK_RIGHT := Vector2(320, 64)
 
-const SIDE_KEYBOARD := 0
-const SIDE_MOUSE := 1
 
 class _ArmLayer:
 	extends Node2D

@@ -7,7 +7,6 @@ extends Control
 ## 脚本的 extends 必须是节点类型的祖先，否则 Godot 会直接不挂脚本 —— 这个坑刚踩过。
 
 @export var title: StringName
-@export var show_close_button: bool = true
 
 var drag_start_mouse_pos: Vector2i
 var drag_start_window_pos: Vector2i

@@ -61,8 +61,6 @@ const PAW_ROTATION_MAX := deg_to_rad(72.0)
 const PAW_ROTATION_SAMPLES := 289
 const PAW_ROTATION_PENALTY := 0.02
 
-const WORK_ARM_SIDE_KEYBOARD := 0
-const WORK_ARM_SIDE_MOUSE := 1
 const PAW_ARM_COLOR := Color("#fcfbfb")
 const PAW_ARM_OUTLINE_COLOR := Color("#150f11")
 const SHOULDER_CENTER := Vector2(0, 32)

@@ -48,7 +48,6 @@ const DL_STALL_SEC := 30.0
 const MSG_PATH := "NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/Message"
 const JUMP_PATH := "NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer/JumpButton"
 const UPDATE_PATH := "NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer/UpdateButton"
-const CANCEL_PATH := "NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer/CancelButton"
 
 ## 更新过程中用到的目录，放在 user:// 下 —— 必须在安装目录之外：
 ## 安装目录整个会被替换掉，把安装包或助手放在里面等于自己抽自己的地毯。
