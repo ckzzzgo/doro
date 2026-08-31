@@ -243,10 +243,50 @@ public partial class WindowManager : Node
 	/// 原实现用 DisplayServer.ScreenGetSize() 取的是桌宠自己所在屏的尺寸，而前台窗口
 	/// 可能在另一块屏上 —— 分辨率不同的多屏环境会误判（该躲的时候不躲，或反之）。
 	/// 这里逐屏比对位置与尺寸；前台窗口就是桌宠自己时直接排除。
+	[DllImport("user32.dll")]
+	private static extern IntPtr GetShellWindow();
+
+	[DllImport("user32.dll")]
+	private static extern IntPtr GetDesktopWindow();
+
+	[DllImport("user32.dll", CharSet = CharSet.Unicode)]
+	private static extern int GetClassName(IntPtr hWnd, System.Text.StringBuilder lpClassName, int nMaxCount);
+
+	/// 尺寸正好铺满屏幕、但绝不是「有人在全屏玩游戏看视频」的那些系统窗口。
+	///
+	/// 这一串是踩出来的：桌宠会莫名其妙跑出屏幕又跑回来，用户根本没开过全屏程序。
+	/// 枚举了一遍本机窗口才发现，光是空闲状态下就有两个窗口的矩形跟屏幕分毫不差：
+	///   Progman                     —— 桌面本身。在桌面空白处点一下它就成了前台窗口
+	///   Windows.UI.Core.CoreWindow  —— 输入法 / 文本输入界面，打字时会闪现
+	/// 于是「点一下桌面」= 桌宠躲起来，「再点回别的窗口」= 桌宠跑回来。
+	///
+	/// 顺手把同类的也一起排掉：桌面壁纸层、任务栏、Alt-Tab 和任务视图的全屏浮层。
+	/// 代价是真有 UWP 程序全屏时可能认不出来（它们也用 CoreWindow）——
+	/// 认漏一次只是没躲开，而误判一次是桌宠当着人的面乱跑，后者难受得多。
+	private static readonly string[] ShellClasses = {
+		"Progman", "WorkerW", "Shell_TrayWnd", "Shell_SecondaryTrayWnd",
+		"Windows.UI.Core.CoreWindow", "XamlExplorerHostIslandWindow",
+		"MultitaskingViewFrame", "ForegroundStaging", "DV2ControlHost",
+	};
+
+	private static bool IsShellWindow(IntPtr hWnd)
+	{
+		if (hWnd == GetShellWindow() || hWnd == GetDesktopWindow()) return true;
+		var cls = new System.Text.StringBuilder(256);
+		if (GetClassName(hWnd, cls, cls.Capacity) == 0) return false;
+		string name = cls.ToString();
+		foreach (string s in ShellClasses)
+		{
+			if (name == s) return true;
+		}
+		return false;
+	}
+
 	public bool IsOtherAppFullscreen()
 	{
 		IntPtr hWnd = GetForegroundWindow();
 		if (hWnd == IntPtr.Zero || hWnd == _hWnd) return false;
+		if (IsShellWindow(hWnd)) return false;
 		if (!GetWindowRect(hWnd, out RECT rect)) return false;
 
 		int windowWidth = rect.Right - rect.Left;
