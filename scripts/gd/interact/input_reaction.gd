@@ -363,9 +363,23 @@ func _register_activity(mouse_activity: bool) -> void:
 	# z_index 是 70、盖在 GUI（z_index 0）之上，会把聊天栏压住。
 	if not _keyboard_mode_enabled:
 		return
-	if not _active and not mouse_activity and not window.docking and not _own_text_field_focused():
+	if not _active and not mouse_activity and not window.docking \
+			and not _own_text_field_focused() and not _entering_or_leaving():
 		DoroLog.d("[DORO] work-mode TRIGGER by keyboard t=%d" % Time.get_ticks_msec())
 		_activate_work_mode()
+
+
+## 她正在跑进 / 跑出屏幕（启动、退出、全屏躲避、手动隐藏）。
+##
+## 这段时间不进打字模式，跟「停靠时不进」是同一个道理：人还没到位。
+## 不挡的话，启动动画刚跑一半你按了个键，桌子和键盘当场出现在她身下，
+## 于是她扛着一整套桌子从屏幕外跑进来 —— 实机遇到过。
+##
+## enter_exit 那边只在动画**开始**时退出过一次打字模式，管不到动画**途中**才进入的，
+## 所以必须在源头拦。
+func _entering_or_leaving() -> bool:
+	var ee = window.get("enter_exit") if window else null
+	return ee != null and ee.is_playing()
 
 
 ## 桌宠自己的界面里是否有文本框正在接收输入（聊天输入框、设置里的各个输入框）。
