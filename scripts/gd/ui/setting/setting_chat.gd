@@ -32,7 +32,7 @@ var _section: ConfigSection
 @onready var _pick_btn: Button = $Name/PickButton
 @onready var _fetch_btn: Button = $FetchButton
 @onready var _status: Label = $FetchStatus
-@onready var _prompt_edit: TextEdit = $Prompt/TextEdit
+@onready var _prompt_edit: TextEdit = $Prompt/Frame/TextEdit
 
 var _http: HTTPRequest
 var _menu: PopupMenu

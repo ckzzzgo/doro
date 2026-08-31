@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://c7crjehg0e81v"]
+[gd_scene load_steps=13 format=3 uid="uid://c7crjehg0e81v"]
 
 [ext_resource type="StyleBoxFlat" path="res://assets/themes/pink_panel.tres" id="1_044ml"]
 [ext_resource type="Theme" uid="uid://djmv4w4gt1hm6" path="res://assets/themes/settings.tres" id="1_nmrls"]
@@ -10,6 +10,35 @@
 [ext_resource type="Script" uid="uid://bl1mq2p18j663" path="res://scripts/gd/ui/setting/setting_chat.gd" id="7_63ui7"]
 [ext_resource type="PackedScene" uid="uid://ixxkmbsfe02a" path="res://scenes/ui/ui/setting/update_message_box.tscn" id="9_4o1i3"]
 [ext_resource type="Script" uid="uid://dtydvg1uq05r6" path="res://scripts/gd/ui/setting/setting_about.gd" id="9_10ofc"]
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_prompt"]
+; Prompt 输入框的外框。
+;
+; 边框和圆角原本画在 TextEdit 自己身上（主题里的 TextEdit/styles/normal），但 TextEdit
+; 的竖滚动条是死贴着自己右边缘画的——实测位置 x=448、宽 5，而控件宽正好 453，等于把
+; 右边那条边框线整个盖住，看着就是「框被那根条截断了」。
+;
+; 滚动条挪不动：试过给 TextEdit 的样式加 content_margin_right，它只影响文字区，
+; 滚动条照旧贴边（上下倒是跟着 margin 走的，只有右边不跟）。所以把边框挪到外面这一层，
+; TextEdit 缩在里面，它的滚动条落在留白里，碰不到这条边框。
+;
+; 没去动主题里的 VScrollBar 样式：settings.tres 连聊天记录窗一起在用，那边现在是好的。
+content_margin_left = 10.0
+content_margin_top = 5.0
+content_margin_right = 6.0
+content_margin_bottom = 5.0
+bg_color = Color(1, 1, 1, 0)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.643137, 0.643137, 0.643137, 1)
+corner_radius_top_left = 3
+corner_radius_top_right = 3
+corner_radius_bottom_right = 3
+corner_radius_bottom_left = 3
+
+[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_prompt"]
 
 [node name="Root" type="Panel"]
 anchors_preset = 15
@@ -274,7 +303,11 @@ theme = ExtResource("1_nmrls")
 theme_type_variation = &"LabelItem"
 text = "Prompt设置"
 
-[node name="TextEdit" type="TextEdit" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Prompt"]
+[node name="Frame" type="PanelContainer" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Prompt"]
+layout_mode = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_prompt")
+
+[node name="TextEdit" type="TextEdit" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Prompt/Frame"]
 custom_minimum_size = Vector2(0, 100)
 layout_mode = 2
 size_flags_horizontal = 3
@@ -285,6 +318,9 @@ emoji_menu_enabled = false
 wrap_mode = 1
 scroll_smooth = true
 caret_blink = true
+theme_override_styles/normal = SubResource("StyleBoxEmpty_prompt")
+theme_override_styles/focus = SubResource("StyleBoxEmpty_prompt")
+theme_override_styles/read_only = SubResource("StyleBoxEmpty_prompt")
 
 [node name="About" type="VBoxContainer" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer"]
 layout_mode = 2
