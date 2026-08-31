@@ -35,13 +35,20 @@ theme_override_constants/separation = 0
 layout_mode = 2
 title = &"设置"
 
-[node name="ScrollContainer" type="ScrollContainer" parent="VBoxContainer"]
+[node name="Body" type="MarginContainer" parent="VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+theme_override_constants/margin_left = 6
+theme_override_constants/margin_right = 6
+theme_override_constants/margin_bottom = 8
+
+[node name="ScrollContainer" type="ScrollContainer" parent="VBoxContainer/Body"]
 layout_mode = 2
 size_flags_vertical = 3
 theme = ExtResource("1_nmrls")
 horizontal_scroll_mode = 0
 
-[node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/ScrollContainer"]
+[node name="MarginContainer" type="MarginContainer" parent="VBoxContainer/Body/ScrollContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -50,11 +57,11 @@ theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 5
 theme_override_constants/margin_bottom = 15
 
-[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/ScrollContainer/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/Body/ScrollContainer/MarginContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="TabBar" type="TabBar" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer"]
+[node name="TabBar" type="TabBar" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer"]
 visible = false
 layout_mode = 2
 current_tab = 0
@@ -64,88 +71,88 @@ tab_1/title = "互动设置"
 tab_2/title = "显示设置"
 tab_3/title = "关于"
 
-[node name="HSpacer" type="Control" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer"]
+[node name="HSpacer" type="Control" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer"]
 visible = false
 custom_minimum_size = Vector2(0, 5)
 layout_mode = 2
 
-[node name="TabPages" type="MarginContainer" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer"]
+[node name="TabPages" type="MarginContainer" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_right = 10
 
-[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages"]
+[node name="VBoxContainer" type="VBoxContainer" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 15
 
-[node name="System" type="VBoxContainer" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer"]
+[node name="System" type="VBoxContainer" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme = ExtResource("1_nmrls")
 script = ExtResource("6_4o1i3")
 
-[node name="Title" type="Label" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/System"]
+[node name="Title" type="Label" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/System"]
 layout_mode = 2
 theme = ExtResource("1_nmrls")
 theme_type_variation = &"LabelTitle"
 text = "系统设置"
 
-[node name="HSeparator" type="HSeparator" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/System"]
+[node name="HSeparator" type="HSeparator" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/System"]
 layout_mode = 2
 theme = ExtResource("1_nmrls")
 
-[node name="AutoStartCheckbox" type="CheckBox" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/System"]
+[node name="AutoStartCheckbox" type="CheckBox" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/System"]
 layout_mode = 2
 size_flags_horizontal = 0
 theme = ExtResource("1_nmrls")
 text = "开机自启"
 
-[node name="AutoHideCheckbox" type="CheckBox" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/System"]
+[node name="AutoHideCheckbox" type="CheckBox" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/System"]
 layout_mode = 2
 size_flags_horizontal = 0
 tooltip_text = "检测到别的程序全屏（游戏、视频）时自动躲开，退出全屏再出来。与「置顶」配合使用：置顶让她平时不被挡住，这个负责该让路时让路。"
 theme = ExtResource("1_nmrls")
 text = "全屏自动隐藏"
 
-[node name="Interact" type="VBoxContainer" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer"]
+[node name="Interact" type="VBoxContainer" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme = ExtResource("1_nmrls")
 script = ExtResource("7_4o1i3")
 
-[node name="Display" type="VBoxContainer" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer"]
+[node name="Display" type="VBoxContainer" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme = ExtResource("1_nmrls")
 script = ExtResource("6_vl6pt")
 
-[node name="Title" type="Label" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display"]
+[node name="Title" type="Label" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display"]
 layout_mode = 2
 theme = ExtResource("1_nmrls")
 theme_type_variation = &"LabelTitle"
 text = "显示设置"
 
-[node name="HSeparator" type="HSeparator" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display"]
+[node name="HSeparator" type="HSeparator" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display"]
 layout_mode = 2
 theme = ExtResource("1_nmrls")
 
-[node name="FPSContainer" type="HBoxContainer" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display"]
+[node name="FPSContainer" type="HBoxContainer" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display"]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display/FPSContainer"]
+[node name="Label" type="Label" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display/FPSContainer"]
 layout_mode = 2
 size_flags_horizontal = 0
 theme = ExtResource("1_nmrls")
 theme_type_variation = &"LabelItem"
 text = "帧率"
 
-[node name="HSpacer" type="Control" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display/FPSContainer"]
+[node name="HSpacer" type="Control" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display/FPSContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="OptionButton" type="OptionButton" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display/FPSContainer"]
+[node name="OptionButton" type="OptionButton" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Display/FPSContainer"]
 custom_minimum_size = Vector2(170, 25)
 layout_mode = 2
 tooltip_text = "省电适合挂机整天；标准动作更顺一点；跟随显示器只对高刷屏有意义。"
@@ -159,96 +166,96 @@ popup/item_1/id = 1
 popup/item_2/text = "跟随显示器"
 popup/item_2/id = 2
 
-[node name="Chat" type="VBoxContainer" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer"]
+[node name="Chat" type="VBoxContainer" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer"]
 layout_mode = 2
 theme = ExtResource("1_nmrls")
 script = ExtResource("7_63ui7")
 
-[node name="Title" type="Label" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat"]
+[node name="Title" type="Label" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat"]
 layout_mode = 2
 theme = ExtResource("1_nmrls")
 theme_type_variation = &"LabelTitle"
 text = "聊天设置"
 
-[node name="HSeparator" type="HSeparator" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat"]
+[node name="HSeparator" type="HSeparator" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat"]
 layout_mode = 2
 theme = ExtResource("1_nmrls")
 
-[node name="API" type="HBoxContainer" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat"]
+[node name="API" type="HBoxContainer" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat"]
 layout_mode = 2
 
-[node name="APILabel" type="Label" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/API"]
+[node name="APILabel" type="Label" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/API"]
 layout_mode = 2
 size_flags_horizontal = 0
 theme = ExtResource("1_nmrls")
 theme_type_variation = &"LabelItem"
 text = "API地址"
 
-[node name="HSpacer" type="Control" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/API"]
+[node name="HSpacer" type="Control" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/API"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="LineEdit" type="LineEdit" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/API"]
+[node name="LineEdit" type="LineEdit" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/API"]
 custom_minimum_size = Vector2(150, 25)
 layout_mode = 2
 placeholder_text = "URL"
 caret_blink = true
 
-[node name="Key" type="HBoxContainer" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat"]
+[node name="Key" type="HBoxContainer" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat"]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Key"]
+[node name="Label" type="Label" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Key"]
 layout_mode = 2
 size_flags_horizontal = 0
 theme = ExtResource("1_nmrls")
 theme_type_variation = &"LabelItem"
 text = "API Key"
 
-[node name="HSpacer" type="Control" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Key"]
+[node name="HSpacer" type="Control" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Key"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="LineEdit" type="LineEdit" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Key"]
+[node name="LineEdit" type="LineEdit" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Key"]
 custom_minimum_size = Vector2(150, 25)
 layout_mode = 2
 placeholder_text = "API Key"
 caret_blink = true
 secret = true
 
-[node name="FetchButton" type="Button" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat"]
+[node name="FetchButton" type="Button" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat"]
 layout_mode = 2
 tooltip_text = "用上面的地址和 Key 连一次接口，把可用的模型列出来。连得上就说明配置没问题。"
 theme = ExtResource("1_nmrls")
 text = "连接并获取模型"
 
-[node name="FetchStatus" type="Label" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat"]
+[node name="FetchStatus" type="Label" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat"]
 layout_mode = 2
 theme = ExtResource("1_nmrls")
 theme_type_variation = &"LabelItem"
 autowrap_mode = 3
 text = ""
 
-[node name="Name" type="HBoxContainer" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat"]
+[node name="Name" type="HBoxContainer" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat"]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Name"]
+[node name="Label" type="Label" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Name"]
 layout_mode = 2
 size_flags_horizontal = 0
 theme = ExtResource("1_nmrls")
 theme_type_variation = &"LabelItem"
 text = "模型名称"
 
-[node name="HSpacer" type="Control" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Name"]
+[node name="HSpacer" type="Control" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Name"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="LineEdit" type="LineEdit" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Name"]
+[node name="LineEdit" type="LineEdit" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Name"]
 custom_minimum_size = Vector2(126, 25)
 layout_mode = 2
 placeholder_text = "模型名称"
 caret_blink = true
 
-[node name="PickButton" type="Button" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Name"]
+[node name="PickButton" type="Button" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Name"]
 custom_minimum_size = Vector2(24, 25)
 layout_mode = 2
 disabled = true
@@ -256,10 +263,10 @@ tooltip_text = "先点上面的「连接并获取模型」，这里就能选了"
 theme = ExtResource("1_nmrls")
 text = "▼"
 
-[node name="Prompt" type="VBoxContainer" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat"]
+[node name="Prompt" type="VBoxContainer" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat"]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Prompt"]
+[node name="Label" type="Label" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Prompt"]
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 1
@@ -267,7 +274,7 @@ theme = ExtResource("1_nmrls")
 theme_type_variation = &"LabelItem"
 text = "Prompt设置"
 
-[node name="TextEdit" type="TextEdit" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Prompt"]
+[node name="TextEdit" type="TextEdit" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/Chat/Prompt"]
 custom_minimum_size = Vector2(0, 100)
 layout_mode = 2
 size_flags_horizontal = 3
@@ -279,46 +286,46 @@ wrap_mode = 1
 scroll_smooth = true
 caret_blink = true
 
-[node name="About" type="VBoxContainer" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer"]
+[node name="About" type="VBoxContainer" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 theme = ExtResource("1_nmrls")
 script = ExtResource("9_10ofc")
 update_message_box = ExtResource("9_4o1i3")
 
-[node name="Title" type="Label" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About"]
+[node name="Title" type="Label" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About"]
 layout_mode = 2
 theme = ExtResource("1_nmrls")
 theme_type_variation = &"LabelTitle"
 text = "关于"
 
-[node name="HSeparator" type="HSeparator" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About"]
+[node name="HSeparator" type="HSeparator" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About"]
 layout_mode = 2
 theme = ExtResource("1_nmrls")
 
-[node name="VersionContainer" type="HBoxContainer" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About"]
+[node name="VersionContainer" type="HBoxContainer" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About"]
 layout_mode = 2
 
-[node name="VersionIndicator" type="Label" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About/VersionContainer"]
+[node name="VersionIndicator" type="Label" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About/VersionContainer"]
 layout_mode = 2
 theme = ExtResource("1_nmrls")
 theme_type_variation = &"LabelItem"
 text = "版本号    v0.1.0"
 
-[node name="HSpacer" type="Control" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About/VersionContainer"]
+[node name="HSpacer" type="Control" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About/VersionContainer"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="CheckUpdateButton" type="Button" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About/VersionContainer"]
+[node name="CheckUpdateButton" type="Button" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About/VersionContainer"]
 layout_mode = 2
 text = "检查更新"
 
-[node name="CopyDiagButton" type="Button" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About/VersionContainer"]
+[node name="CopyDiagButton" type="Button" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About/VersionContainer"]
 layout_mode = 2
 tooltip_text = "把这台电脑的显卡和系统信息复制下来，粘贴发给作者"
 text = "复制诊断信息"
 
-[node name="Copyrights" type="Label" parent="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer"]
+[node name="Copyrights" type="Label" parent="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
 theme_override_colors/font_color = Color(0.821788, 0.821789, 0.821787, 1)
@@ -329,9 +336,5 @@ Copyrights © 2025 MelanTech. All rights Reserved."
 horizontal_alignment = 1
 vertical_alignment = 2
 
-[node name="BottomSpacer" type="Control" parent="VBoxContainer"]
-custom_minimum_size = Vector2(0, 12)
-layout_mode = 2
-
-[connection signal="pressed" from="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About/VersionContainer/CheckUpdateButton" to="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About" method="_on_check_update_button_pressed"]
-[connection signal="pressed" from="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About/VersionContainer/CopyDiagButton" to="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About" method="_on_copy_diag_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About/VersionContainer/CheckUpdateButton" to="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About" method="_on_check_update_button_pressed"]
+[connection signal="pressed" from="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About/VersionContainer/CopyDiagButton" to="VBoxContainer/Body/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About" method="_on_copy_diag_button_pressed"]
