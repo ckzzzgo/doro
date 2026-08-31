@@ -279,26 +279,46 @@ corner_radius_bottom_left = 3
 
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_qgeuo"]
 
-[sub_resource type="StyleBoxLine" id="StyleBoxLine_q5sm4"]
-color = Color(0.941176, 0.709804, 0.803922, 1)
-thickness = 5
-vertical = true
-
-[sub_resource type="StyleBoxLine" id="StyleBoxLine_m03r2"]
-color = Color(0.980392, 0.545098, 0.737255, 1)
-thickness = 5
-vertical = true
-
-[sub_resource type="StyleBoxLine" id="StyleBoxLine_twwng"]
-color = Color(0.980392, 0.545098, 0.737255, 1)
-thickness = 5
-vertical = true
-
-[sub_resource type="StyleBoxLine" id="StyleBoxLine_1bvqs"]
-color = Color(0.881936, 0.881937, 0.881936, 1)
-thickness = 5
-vertical = true
-
+; 滚动条：滑块和轨道都是两头圆的（药丸形），不是方头直条。
+;
+; 原来这四个用的是 StyleBoxLine —— 它只能画一根直线，两头必然是方的。改成
+; StyleBoxFlat 才有 corner_radius。宽度得靠 content_margin_left/right 给（各 2.5，
+; 合起来 5，跟原来 StyleBoxLine 的 thickness 一致），StyleBoxFlat 没有 thickness，
+; 不给内容边距的话最小宽度是 0，滚动条会整个看不见。
+;
+; 注意这套样式聊天记录窗也在用（settings.tres 是共用主题），所以那边的滚动条一起变圆。
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_scroll_grabber"]
+content_margin_left = 2.5
+content_margin_right = 2.5
+bg_color = Color(0.941176, 0.709804, 0.803922, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_scroll_grabber_hl"]
+content_margin_left = 2.5
+content_margin_right = 2.5
+bg_color = Color(0.980392, 0.545098, 0.737255, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_scroll_grabber_pressed"]
+content_margin_left = 2.5
+content_margin_right = 2.5
+bg_color = Color(0.980392, 0.545098, 0.737255, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_scroll_track"]
+content_margin_left = 2.5
+content_margin_right = 2.5
+bg_color = Color(0.881936, 0.881937, 0.881936, 1)
+corner_radius_top_left = 2
+corner_radius_top_right = 2
+corner_radius_bottom_right = 2
+corner_radius_bottom_left = 2
 [sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_m03r2"]
 
 [resource]
@@ -401,8 +421,8 @@ TooltipLabel/colors/font_color = Color(1, 1, 1, 1)
 TooltipLabel/font_sizes/font_size = 12
 TooltipLabel/fonts/font = ExtResource("4_gknpa")
 VBoxContainer/constants/separation = 6
-VScrollBar/styles/grabber = SubResource("StyleBoxLine_q5sm4")
-VScrollBar/styles/grabber_highlight = SubResource("StyleBoxLine_m03r2")
-VScrollBar/styles/grabber_pressed = SubResource("StyleBoxLine_twwng")
-VScrollBar/styles/scroll = SubResource("StyleBoxLine_1bvqs")
+VScrollBar/styles/grabber = SubResource("StyleBoxFlat_scroll_grabber")
+VScrollBar/styles/grabber_highlight = SubResource("StyleBoxFlat_scroll_grabber_hl")
+VScrollBar/styles/grabber_pressed = SubResource("StyleBoxFlat_scroll_grabber_pressed")
+VScrollBar/styles/scroll = SubResource("StyleBoxFlat_scroll_track")
 VScrollBar/styles/scroll_focus = SubResource("StyleBoxEmpty_m03r2")
