@@ -1,6 +1,6 @@
 [gd_scene load_steps=11 format=3 uid="uid://c7crjehg0e81v"]
 
-[ext_resource type="Texture2D" uid="uid://b1x0h5ke4edr4" path="res://assets/images/icons/ui/settings/bg_sharp.png" id="1_044ml"]
+[ext_resource type="StyleBoxFlat" path="res://assets/themes/pink_panel.tres" id="1_044ml"]
 [ext_resource type="Theme" uid="uid://djmv4w4gt1hm6" path="res://assets/themes/settings.tres" id="1_nmrls"]
 [ext_resource type="PackedScene" uid="uid://dkq4fyfppmif4" path="res://scenes/ui/ui/setting/title_bar.tscn" id="3_fstt7"]
 [ext_resource type="Script" uid="uid://cpq2sxd3y37an" path="res://scripts/gd/ui/setting/setting_system.gd" id="6_4o1i3"]
@@ -11,7 +11,7 @@
 [ext_resource type="PackedScene" uid="uid://ixxkmbsfe02a" path="res://scenes/ui/ui/setting/update_message_box.tscn" id="9_4o1i3"]
 [ext_resource type="Script" uid="uid://dtydvg1uq05r6" path="res://scripts/gd/ui/setting/setting_about.gd" id="9_10ofc"]
 
-[node name="NinePatchRect" type="NinePatchRect"]
+[node name="Root" type="Panel"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -20,14 +20,7 @@ offset_bottom = -290.0
 grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("1_nmrls")
-texture = ExtResource("1_044ml")
-region_rect = Rect2(0, 0, 106, 106)
-patch_margin_left = 25
-patch_margin_top = 25
-patch_margin_right = 25
-patch_margin_bottom = 25
-axis_stretch_horizontal = 1
-axis_stretch_vertical = 1
+theme_override_styles/panel = ExtResource("1_044ml")
 
 [node name="VBoxContainer" type="VBoxContainer" parent="."]
 layout_mode = 1
@@ -335,6 +328,10 @@ text = "Dororo
 Copyrights © 2025 MelanTech. All rights Reserved."
 horizontal_alignment = 1
 vertical_alignment = 2
+
+[node name="BottomSpacer" type="Control" parent="VBoxContainer"]
+custom_minimum_size = Vector2(0, 12)
+layout_mode = 2
 
 [connection signal="pressed" from="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About/VersionContainer/CheckUpdateButton" to="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About" method="_on_check_update_button_pressed"]
 [connection signal="pressed" from="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About/VersionContainer/CopyDiagButton" to="VBoxContainer/ScrollContainer/MarginContainer/VBoxContainer/TabPages/VBoxContainer/About" method="_on_copy_diag_button_pressed"]

@@ -1,15 +1,14 @@
 [gd_scene load_steps=6 format=3 uid="uid://dkq4fyfppmif4"]
 
-[ext_resource type="Texture2D" uid="uid://b1x0h5ke4edr4" path="res://assets/images/icons/ui/settings/bg_sharp.png" id="1_035c6"]
+[ext_resource type="StyleBoxFlat" path="res://assets/themes/pink_titlebar.tres" id="1_035c6"]
 [ext_resource type="Script" uid="uid://17csba4thvc5" path="res://scripts/gd/ui/setting/title_bar_dragging.gd" id="2_q8rh5"]
 [ext_resource type="FontFile" uid="uid://dlfas555fcata" path="res://assets/fonts/MSYHBD.TTC" id="3_6rlum"]
 [ext_resource type="Theme" uid="uid://djmv4w4gt1hm6" path="res://assets/themes/settings.tres" id="4_pj7ap"]
 [ext_resource type="Texture2D" uid="uid://d4gdkpndtc417" path="res://assets/images/icons/ui/settings/close.png" id="5_3450a"]
 
-[node name="TitleBar" type="NinePatchRect"]
-self_modulate = Color(1, 0.556863, 0.752941, 1)
+[node name="TitleBar" type="Panel"]
 custom_minimum_size = Vector2(0, 40)
-texture = ExtResource("1_035c6")
+theme_override_styles/panel = ExtResource("1_035c6")
 script = ExtResource("2_q8rh5")
 
 [node name="MarginContainer" type="MarginContainer" parent="."]

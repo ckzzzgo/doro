@@ -45,9 +45,9 @@ const CHECK_TIMEOUT_SEC := 10.0
 ## 只要字节数还在涨就一直等，彻底不动了才判失败。
 const DL_STALL_SEC := 30.0
 
-const MSG_PATH := "NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/Message"
-const JUMP_PATH := "NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer/JumpButton"
-const UPDATE_PATH := "NinePatchRect/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer/UpdateButton"
+const MSG_PATH := "Root/VBoxContainer/MarginContainer/VBoxContainer/Message"
+const JUMP_PATH := "Root/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer/JumpButton"
+const UPDATE_PATH := "Root/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer/UpdateButton"
 
 ## 更新过程中用到的目录，放在 user:// 下 —— 必须在安装目录之外：
 ## 安装目录整个会被替换掉，把安装包或助手放在里面等于自己抽自己的地毯。
@@ -71,7 +71,7 @@ var _dl_last_bytes := 0
 var _dl_stall := 0.0
 
 func _ready() -> void:
-	get_node("NinePatchRect/VBoxContainer/TitleBar").set_close_button_visibility(false)
+	get_node("Root/VBoxContainer/TitleBar").set_close_button_visibility(false)
 	http_request = HTTPRequest.new()
 	add_child(http_request)
 	check_for_updates()

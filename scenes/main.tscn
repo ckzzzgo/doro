@@ -450,13 +450,15 @@ chat_dialog = NodePath("../ChatDialog")
 [node name="Settings" type="Window" parent="GUI"]
 title = "设置"
 initial_position = 2
-size = Vector2i(450, 350)
+size = Vector2i(486, 350)
 visible = false
+transparent_bg = true
 borderless = true
-min_size = Vector2i(450, 350)
+transparent = true
+min_size = Vector2i(486, 350)
 script = ExtResource("27_2f3dj")
 
-[node name="NinePatchRect" parent="GUI/Settings" instance=ExtResource("26_vxglm")]
+[node name="Root" parent="GUI/Settings" instance=ExtResource("26_vxglm")]
 offset_right = 0.0
 offset_bottom = 0.0
 
