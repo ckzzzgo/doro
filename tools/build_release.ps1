@@ -107,6 +107,22 @@ function PckContains([string]$pck, [string]$needle, [int]$scanBytes = 8MB) {
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
+Step "自检（版本号 / README 承诺 / 资源路径）"
+
+# 先跑 tools/selfcheck.ps1 再开始打包。
+#
+# 它专查那类「代码本身没毛病、所以读代码看不出来」的问题：版本号漏改一处、
+# README 写了某功能而它的默认值是关的、代码里的资源路径大小写不对（本机跑没事，
+# 打进 pck 就找不到）。这些一旦发出去，用户那边才炸。
+#
+# 挂在这儿而不是做成 CI：反正每次发版都要跑这个脚本，等于强制过一道关，
+# 不用额外维护一套 GitHub Actions（那要下一个多 G 的导出模板，对单人项目不划算）。
+& (Join-Path $PSScriptRoot 'selfcheck.ps1')
+if ($LASTEXITCODE -ne 0) {
+    Fail "自检没过（见上面）。修完再打包 —— 这些错误发出去之后只能靠发新版补救。"
+}
+Ok "自检通过"
+
 Step "检查工具与项目"
 
 if (-not (Test-Path $Godot))  { Fail "找不到 Godot：$Godot`n     用 -Godot 指定 mono 版 Godot 4.4.1 的路径。" }
