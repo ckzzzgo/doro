@@ -39,11 +39,79 @@ func load_config():
 func save_config():
 	return _config.save(config_path)
 		
+## 需要加密落盘的键（section/key）。
+##
+## 只放**凭据**。url、model_name 不是秘密；prompt 是用户自己调的人格，加密只会让
+## 配置文件没法人工排查，而调 prompt 的人正想直接看它。
+const SECRET_KEYS := {
+	"chat": ["api_key"],
+}
+
+
+## 读写在这里做透明加解密，上层（ConfigSection、设置界面、绑定框架）一行都不用改。
+##
+## 挡的是「config.ini 这个文件被别人看到」：借走的笔记本、截图、同步到网盘的备份、
+## 用户把配置发出来求助。挡不住以同一个 Windows 账号运行的程序 —— 它自己也能解开。
+## 细节见 SecretStore.cs。
+func _is_secret(section: String, key: String) -> bool:
+	return key in SECRET_KEYS.get(section, [])
+
+
+func _secret_store():
+	return get_node_or_null(^"/root/SecretStore")
+
+
+## 本次运行中解不开的机密键（"section/key"）。见 set_value 里那道守卫。
+var _undecryptable: Dictionary = {}
+
+
 func set_value(section: String, key: String, value):
+	if _is_secret(section, key):
+		var id := "%s/%s" % [section, key]
+		# 解不开的密文，不许被空串覆盖。
+		#
+		# ConfigSection.load_props() 会把 get_value 返回的东西原样写回配置文件。
+		# 解密失败时 get_value 返回空串，于是那串「暂时读不出来、但换回原机器就能用」
+		# 的密文会被当场抹成 ""。实测过：确实会毁掉用户唯一能恢复的凭据。
+		#
+		# 用户自己填了新 key（非空）才放行，同时解除标记 —— 那是真的要替换。
+		if _undecryptable.has(id):
+			if value is String and value == "":
+				return
+			_undecryptable.erase(id)
+		if value is String and value != "":
+			var store = _secret_store()
+			if store:
+				var sealed: String = store.Protect(value)
+				# 加密失败（非 Windows、crypt32 缺失）就退回明文。功能可用优先于加密
+				# —— 存不进去 key 等于聊天功能直接废掉，那比明文更糟。
+				if sealed != "":
+					_config.set_value(section, key, sealed)
+					return
 	_config.set_value(section, key, value)
-	
+
+
 func get_value(section: String, key: String, default=null):
-	return _config.get_value(section, key, default)
+	var raw = _config.get_value(section, key, default)
+	if not (_is_secret(section, key) and raw is String and raw != ""):
+		return raw
+	var store = _secret_store()
+	if store == null:
+		return raw
+	if not store.IsProtected(raw):
+		# 老版本留下的明文。就地补加密再写回，只补这一次。
+		DoroLog.d("[Config] %s/%s 是明文，改为加密存放" % [section, key])
+		set_value(section, key, raw)
+		save_config()
+		return raw
+	var plain: String = store.Unprotect(raw)
+	if plain == "":
+		# 解不开：配置多半是从别的机器或别的 Windows 账号拷来的。DPAPI 的密钥绑账号，
+		# 这属于预期内。返回空让用户重填，同时记上标记 —— set_value 那边靠它挡住
+		# 「空串把密文冲掉」，用户拷回原机器时还能用。
+		_undecryptable["%s/%s" % [section, key]] = true
+		push_warning("配置里的 %s/%s 解密失败：换过机器或 Windows 账号的话需要重新填写" % [section, key])
+	return plain
 
 func get_window_config(key: String, default=null):
 	return get_value(WINDOW_SEC_NAME, key, default)

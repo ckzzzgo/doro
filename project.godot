@@ -23,6 +23,7 @@ config/icon="uid://dbgr0uu8hus3f"
 [autoload]
 
 MouseTracker="*res://scripts/cs/MouseTracker.cs"
+SecretStore="*res://scripts/cs/SecretStore.cs"
 Config="*res://scripts/gd/utils/config/config_manager.gd"
 WindowManager="*res://scripts/cs/WindowManager.cs"
 MouseDetection="*res://scripts/cs/MouseDetection.cs"
