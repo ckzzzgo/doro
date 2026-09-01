@@ -145,36 +145,7 @@ func _ready() -> void:
 	# 信号在这里连一次就够。原来连在 check_for_updates 里，那时它只被调用一次所以没事；
 	# 现在要为每个候选源重试，连在那儿会越连越多，一次回调触发好几遍。
 	http_request.request_completed.connect(_on_request_completed)
-	_purge_old_packages()
 	check_for_updates()
-
-
-## 清掉 user://update 里遗留的安装包。
-##
-## 每个包 100MB 上下，而更新成功之后它就一直躺在 AppData 里没人管——开发机上攒到过
-## 12 个、1.2 GB，用户根本不知道有这么个目录。助手装完会删掉它用的那一个（见
-## DoroUpdater.cs），但那只管住以后；早先版本留下的存量得在这儿清。
-##
-## 放在打开「检查更新」时做是安全的：弹窗同一时刻只可能有一个实例（setting_about.gd
-## 里有守卫），所以这会儿一定没有下载在跑，不会删到正在写的文件。
-func _purge_old_packages() -> void:
-	var dir := DirAccess.open(WORK_DIR)
-	if dir == null:
-		return
-	var freed := 0
-	for f in dir.get_files():
-		if not f.to_lower().ends_with(".zip"):
-			continue
-		var full := WORK_DIR.path_join(f)
-		var size := 0
-		var fa := FileAccess.open(full, FileAccess.READ)
-		if fa != null:
-			size = fa.get_length()
-			fa.close()
-		if dir.remove(f) == OK:
-			freed += size
-	if freed > 0:
-		print("清理了遗留的安装包，腾出 %s" % _size_text(freed))
 
 func _msg(text: String) -> void:
 	get_node(MSG_PATH).set_text(text)

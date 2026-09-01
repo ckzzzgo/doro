@@ -198,14 +198,6 @@ internal static class DoroUpdater
             SafeDeleteDir(backup);
             SafeDeleteDir(staging);
 
-            // 安装包也一起删掉。它有 100MB 上下，装完就没用了，可之前一直留在
-            // user://update 里没人管 —— 开发机上攒到过 12 个、1.2 GB，而用户根本
-            // 不知道 AppData 里有这么个目录。
-            //
-            // 放在这里删：新版已经确认可用，回滚路径都走不到了，删了不会没退路。
-            TryDeleteFile(zip);
-            Log("已删除安装包 " + zip);
-
             Relaunch(targetFull, relaunch);
             Log("==== 更新成功 ====");
             return Done(0);
