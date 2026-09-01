@@ -167,9 +167,37 @@ foreach ($f in @('LICENSE', 'NOTICE', 'assets/icons/app_icon.ico', 'helpers/Doro
     if (Test-Path $f) { Ok $f } else { Bad "缺 $f —— 打包会失败或者发出去的包少东西" }
 }
 
-# ------------------------------------------------------------ 5. 可选：让 Godot 过一遍
+# ------------------------------------------------------------ 5. version.json 签名
+Section "5. 版本清单签名"
+
+if (-not (Test-Path 'version.json')) {
+    Bad "缺 version.json —— 客户端检查更新靠它，没有就全盘认不出新版"
+} else {
+    $vj = Get-Content -Raw -Encoding UTF8 'version.json' | ConvertFrom-Json
+    if ($vj.package.PSObject.Properties['signature']) {
+        Ok "version.json 带签名（$($vj.package.signature.Substring(0,12))…）"
+        # 签名内容能否过内嵌公钥校验，这步要 Godot 跑真加解密，放在 -WithGodot 里。
+        $script:NeedSigVerify = $true
+    } else {
+        Bad "version.json 的 package 里没有 signature 字段`n         客户端会自动更新校验签名，没签名的清单会被整条拒绝，用户只能手动下载。`n         发版前先跑 tools/sign_version.gd。"
+    }
+}
+
+# 私钥绝不能入库。真进了，任何人都能伪造下载清单，内嵌公钥照样验过，防线作废。
+if (Test-Path 'tools/keys') {
+    $trackedPriv = git ls-files 'tools/keys'
+    if ($trackedPriv) {
+        Bad "tools/keys/ 下有文件被 git 跟踪：$($trackedPriv -join ', ')`n         私钥进了仓库，伪造签名的门槛就没了。git rm --cached 并从 .gitignore 排除。"
+    } else {
+        Ok "tools/keys/ 存在但未被 git 跟踪（私钥不在仓库里）"
+    }
+} else {
+    Warn "没有 tools/keys/ —— 确认发布机上有签名私钥（不应入库）"
+}
+
+# ------------------------------------------------------------ 6. 可选：让 Godot 过一遍
 if ($WithGodot) {
-    Section "5. 让 Godot 解析所有脚本"
+    Section "6. 让 Godot 解析所有脚本（并校验签名）"
     if (-not (Test-Path $Godot)) {
         Warn "找不到 Godot（$Godot），跳过"
     } else {
@@ -179,6 +207,15 @@ if ($WithGodot) {
         }
         if ($errs) { $errs | Select-Object -First 8 | ForEach-Object { Bad $_.Trim() } }
         else { Ok "所有脚本解析通过，资源导入无错" }
+
+        # 真校验一遍 version.json 的签名。签名是「安全相关字段」的规范串 + 内嵌公钥，
+        # 只有 Godot 能跑这道加解密，check_mirrors / 上面的字段存在性都替代不了。
+        $sig = & $Godot --headless --path . --script res://tools/selfcheck_verify.gd --quit 2>&1 | Out-String
+        if ($sig -match 'SIGNATURE_VERIFY=OK') {
+            Ok "version.json 签名通过内嵌公钥校验"
+        } else {
+            Bad "version.json 签名校验不通过——发出去用户会整条更新被拒"
+        }
     }
 }
 

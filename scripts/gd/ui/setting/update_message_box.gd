@@ -25,6 +25,10 @@ const RELEASES_URL := "https://github.com/ckzzzgo/doro/releases/latest"
 ## 一键更新只认这个前缀下的下载地址，理由见 _can_self_update。
 const PACKAGE_URL_PREFIX := "https://github.com/ckzzzgo/doro/releases/download/"
 
+## 版本清单的数字签名校验。verification 失败时一键更新整条被封（fail-closed），
+## 只留手动下载这条退路 —— 这正是挡「镜像把 version.json 和 sha256 一起掉包」的闸门。
+const VersionSigner = preload("res://scripts/gd/utils/version_signer.gd")
+
 ## 检查更新的网络超时。
 ##
 ## Godot 的 HTTPRequest 默认 timeout = 0，意思是「永不超时」。请求一旦挂住
@@ -68,8 +72,10 @@ const CHECK_TIMEOUT_SEC := 8.0
 ##
 ## 安全性：包下完一定校验 sha256（见 _on_download_completed），镜像给了坏东西会被
 ## 直接丢弃。但 sha256 本身来自 version.json，若 version.json 也是从镜像取的，
-## 信任链的根就落在那个镜像上了——所以直连永远排第一，只有它不通才退而求其次；
-## 另外 _package_url_ok 会要求 package.url 必须是 github.com，镜像改不了下载目标。
+## 信任链的根就落在那个镜像上了——所以直连永远排第一，只有它不通才退而求其次。
+## 现在又多了一层：版本清单带签名（见 _verify_manifest / VersionSigner），即便镜像
+## 把 version.json 和配套 sha256 一起掉包，也过不了内嵌公钥的校验，一键更新被整个
+## 拦下、退回手动下载。镜像只能当搬运工，改不了内容，也填不出一份能通过的清单。
 const MIRRORS := [
 	"",
 	"https://ghfast.top/",
@@ -202,6 +208,13 @@ func _on_request_completed(result: int, response_code: int, _headers, body: Pack
 	var current: String = str(ProjectSettings.get_setting("application/config/version"))
 	var latest: String = str(manifest["version"])
 
+	# 门槛：版本清单必须签名可信。宁可这次看不到一键更新，也不从可疑来源自动装东西。
+	# 用户仍走「手动下载」退路（JUMP_PATH），那条不受签名约束、也无需信任网络。
+	if not _verify_manifest(manifest):
+		_msg("检查更新：返回的版本信息未能通过来源校验。\n为安全起见不启用自动更新，请手动下载。")
+		get_node(JUMP_PATH).show()
+		return
+
 	if is_update_available(current, latest):
 		_msg("发现新版本 v%s\n当前 v%s" % [latest, current])
 		get_node(JUMP_PATH).show()
@@ -210,6 +223,22 @@ func _on_request_completed(result: int, response_code: int, _headers, body: Pack
 			get_node(UPDATE_PATH).show()
 	else:
 		_msg("已是最新版本 v%s" % current)
+
+## 版本清单的来源校验。签名通过返回 true；任何问题都返回 false。
+##
+## 这是整条一键更新的信任根基：只要这一关过不去，后面连 sha256 校验都不配谈 ——
+## 一个能把 version.json 掉包的镜像同样能给出一份「配套」的 sha256。签名走的是内嵌在
+## 客户端里的公钥，镜像拿不到私钥，只能原样转发官方那份、或干脆让校验失败。
+##
+## 刻意不把失败当成「这个源不行，换下一个」：那等于给掉包的镜像一次重新提交的机会，
+## 而且多个镜像共用同一份清单，只要有一个源是恶意的就能卡住整条更新。这里 fail-closed，
+## 只留手动下载。
+func _verify_manifest(manifest: Dictionary) -> bool:
+	var err: String = VersionSigner.verify(manifest)
+	if err.is_empty():
+		return true
+	push_warning("版本清单校验未通过，已禁用自动更新：%s" % err)
+	return false
 
 ## 把一次响应解读成版本清单。读不出来就返回空字典，并把原因记在 _last_fail 里，
 ## 供「所有源都试完了」时展示。返回空 = 这个源不能用，该换下一个。
@@ -266,6 +295,11 @@ static func is_update_available(current_version: String, latest_version: String)
 
 ## 本次运行是否具备自动更新的条件。
 ## 编辑器里跑没有安装目录可换；助手不在同级目录时也没法替换。
+##
+## 这层是条件检查，不是安全闸门。签名校验在 _verify_manifest 那里已经过掉了，
+## 这里只剩「能不能换」的客观条件：有没有完整信息、下载地址是不是本仓库 Release、
+## 助手在不在位。地址这项仍值得单独钉 —— 即便版本清单签名可信，也该确认它指向的
+## 就是本仓库，防止发布侧把下载地址改到别处。
 func _can_self_update() -> bool:
 	if OS.has_feature("editor"):
 		return false
@@ -275,9 +309,8 @@ func _can_self_update() -> bool:
 	if not (pkg.has("url") and pkg.has("sha256")):
 		return false
 	if not str(pkg["url"]).begins_with(PACKAGE_URL_PREFIX):
-		# version.json 可能是从第三方镜像取回来的。包本身有 sha256 兜底，但那个
-		# sha256 也写在同一份 version.json 里 —— 光靠它，被掉包的清单可以自圆其说。
-		# 所以再钉一条：下载地址必须是本仓库的 Release，镜像只能当搬运工，不能改目的地。
+		# 签名只管「内容是不是作者签的」；这里再钉一条「下载地址必须是本仓库的 Release」。
+		# 两者叠加，镜像既换不了内容、也换不了目的地。
 		push_warning("version.json 里的下载地址不是本仓库的 Release，已拒绝一键更新：%s"
 			% str(pkg["url"]))
 		return false
