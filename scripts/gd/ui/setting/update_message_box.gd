@@ -425,6 +425,12 @@ func _on_download_completed(result: int, response_code: int, _headers, _body) ->
 
 func _fail(text: String) -> void:
 	_busy = false
+	# 同时写进日志（user://logs/，PC 上默认开着）。界面上那句话用户看完就关了，
+	# 而更新出问题时我们拿到的往往只有一句「更新失败了」——日志里得有当时用的
+	# 是哪条线路、断在哪一步，否则换源这套东西出了毛病根本没法查。
+	push_warning("更新失败（线路 %d/%d）：%s" % [
+		_source, MIRRORS.size() - 1, text.replace("
+", " ")])
 	_msg(text)
 	get_node(UPDATE_PATH).disabled = false
 	get_node(JUMP_PATH).show()
