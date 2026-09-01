@@ -58,14 +58,23 @@ const CHECK_TIMEOUT_SEC := 8.0
 ##
 ## 这类服务生死很快。哪天全都不通了，用户仍有「手动下载」那条退路，不会卡死。
 ##
+## 顺序按**下载吞吐**排，不是按「取 version.json 谁先答」排。2026-09-01 在真的
+## 没梯子的网络上实测过一次（上面那些是隔着隧道验的，只能证明内容对，证明不了
+## 墙内连得上）：gh-proxy.com 取 version.json 用 559ms，比 ghfast.top 的 814ms
+## 还快，但下 95MB 的包只有 0.05 MB/s——要半小时；ghfast.top 是 0.58 MB/s，
+## 两分四十四秒。小文件的延迟完全预测不了大文件的吞吐，差了一个数量级且方向相反，
+## 所以「让几个源赛跑取 version.json，谁快用谁」这个想法是错的，别再捡回来。
+## 复测：tools/check_mirrors.ps1（必须关掉梯子跑，脚本会自己拦）。
+##
 ## 安全性：包下完一定校验 sha256（见 _on_download_completed），镜像给了坏东西会被
 ## 直接丢弃。但 sha256 本身来自 version.json，若 version.json 也是从镜像取的，
 ## 信任链的根就落在那个镜像上了——所以直连永远排第一，只有它不通才退而求其次；
 ## 另外 _package_url_ok 会要求 package.url 必须是 github.com，镜像改不了下载目标。
 const MIRRORS := [
 	"",
-	"https://gh-proxy.com/",
 	"https://ghfast.top/",
+	"https://gh-proxy.com/",
+	# 2026-09-01 实测不通。留着放最后：只有前面全挂时才会试到它，不额外花时间。
 	"https://gh.llkk.cc/",
 ]
 
@@ -78,6 +87,20 @@ var _source := 0
 ## 慢网用户正常下十几分钟，固定时限会把他们误杀。改成盯「有没有进度」：
 ## 只要字节数还在涨就一直等，彻底不动了才判失败。
 const DL_STALL_SEC := 30.0
+
+## 源太慢时换下一个的判定。和 DL_STALL_SEC 抓的是两码事：那个抓「彻底不动了」，
+## 这个抓「一直在动，但慢到没法用」——实测 gh-proxy.com 能稳定给 0.05 MB/s，
+## 字节一秒不停地来，停滞检测永远不触发，进度条会老老实实爬半小时。
+##
+## 下载开始后只判一次，判完这套检测就永久关掉（_dl_speed_judged），无论结论是
+## 快还是慢。这是硬保证：一次下载里最多重来一遍，**不可能**在几个源之间反复
+## 横跳导致永远下不完。网真的特别慢的用户，最坏就是白费 30 秒，之后无论多慢都
+## 让它下到底，只有「30 秒一个字节都没有」的停滞检测还能中断它。
+const DL_SLOW_WINDOW_SEC := 30.0
+
+## 低于这个速度就认为该换源。95MB 的包按 0.1 MB/s 要 16 分钟，花 30 秒赌一把
+## 别的源是划算的。取实测最慢那个源（0.05 MB/s）的两倍，确保它一定会被抓到。
+const DL_SLOW_MIN_BPS := 104857.0
 
 const MSG_PATH := "Root/VBoxContainer/MarginContainer/VBoxContainer/Message"
 const JUMP_PATH := "Root/VBoxContainer/MarginContainer/VBoxContainer/HBoxContainer/JumpButton"
@@ -103,6 +126,12 @@ var _downloading := false
 ## 停滞检测用：上次见到的已下载字节数，和距上次增长过了多久
 var _dl_last_bytes := 0
 var _dl_stall := 0.0
+
+## 慢源检测用：本次下载已经进行了多久，以及那唯一一次判定做过没有。
+## _dl_speed_judged 一旦为真就再也不会变回去（除非重新点下载），
+## 它就是「最多只换一次源」这个保证本身。
+var _dl_elapsed := 0.0
+var _dl_speed_judged := false
 
 func _ready() -> void:
 	get_node("Root/VBoxContainer/TitleBar").set_close_button_visibility(false)
@@ -255,6 +284,22 @@ func _on_update_button_pressed() -> void:
 	DirAccess.make_dir_recursive_absolute(WORK_DIR)
 	_dl_path = WORK_DIR.path_join(name)
 
+	_dl_speed_judged = false
+	_start_download()
+
+## 用当前的 _source 发起下载。降级换源时会再进来一次，所以这里不做任何
+## 「只该发生一次」的事（建目录、置 _busy 之类都留在调用方）。
+##
+## retry=true 表示这是换源重下：从头下，不做断点续传。少几 MB 的浪费换掉
+## Range 请求那一整套复杂度——镜像支不支持 Range 还得一个个验，不值。
+##
+## 从头下的前提是新请求会把上次下了一半的文件截断。这条实测验过（掐断在
+## 2161835 字节，换个小文件重下后落盘 376 字节，旧内容一点没剩）；要是不截断，
+## 拼出来的包 sha256 必然对不上，用户等两轮换来一句「下载失败」。改这段之前
+## 先想想这一条还成不成立。
+func _start_download(retry: bool = false) -> void:
+	var pkg: Dictionary = latest_info["package"]
+
 	_dl = HTTPRequest.new()
 	add_child(_dl)
 	# 直接落盘。104MB 的包不能先攒在内存里。
@@ -262,14 +307,35 @@ func _on_update_button_pressed() -> void:
 	_dl.request_completed.connect(_on_download_completed)
 
 	# 检查更新时哪个源试通了，下载就继续用它 —— 已知它到得了，没必要再从直连重来一遍。
-	_msg("正在下载新版本……" if _source == 0 else "正在通过备用线路下载……")
+	if retry:
+		_msg("刚才那条线路太慢，换一条重新下载……")
+	else:
+		_msg("正在下载新版本……" if _source == 0 else "正在通过备用线路下载……")
 	_downloading = true
 	_dl_last_bytes = 0
 	_dl_stall = 0.0
+	_dl_elapsed = 0.0
 	var err := _dl.request(_via(str(pkg["url"])))
 	if err != OK:
 		_downloading = false
 		_fail("下载没能开始（错误码 %d）。" % err)
+
+## 当前源慢到没法用，换下一个从头重下。全程只会发生一次，见 DL_SLOW_WINDOW_SEC。
+func _demote_source(bps: float) -> void:
+	push_warning("下载源「%s」只有 %.2f MB/s，换下一条线路" % [
+		MIRRORS[_source] if _source > 0 else "直连", bps / 1048576.0])
+	_teardown_dl()
+	_source += 1
+	_start_download(true)
+
+## 停掉并释放下载用的 HTTPRequest。先显式 cancel 再 free：卡死那条路径上请求
+## 还挂着，只 queue_free 依赖析构去断连接，不如自己断干净。
+func _teardown_dl() -> void:
+	_downloading = false
+	if _dl:
+		_dl.cancel_request()
+		_dl.queue_free()
+		_dl = null
 
 func _process(delta: float) -> void:
 	if not _downloading or _dl == null:
@@ -289,6 +355,16 @@ func _process(delta: float) -> void:
 			_fail("下载卡住了：%d 秒没有任何进度。\n换个网络再试，或手动下载新版。" % int(DL_STALL_SEC))
 			return
 
+	# 慢源判定。整个下载过程只做这一次，且只在还有下一个源可换时才做。
+	# 判完就置 _dl_speed_judged，无论结论是快是慢——所以最多换一次源。
+	_dl_elapsed += delta
+	if not _dl_speed_judged and _dl_elapsed >= DL_SLOW_WINDOW_SEC:
+		_dl_speed_judged = true
+		# 从 0 开始算，连接阶段那几秒也算进去：半天连不上的源同样是慢源。
+		var bps := got / _dl_elapsed
+		if bps < DL_SLOW_MIN_BPS and _source + 1 < MIRRORS.size():
+			_demote_source(bps)
+			return
 	if got <= 0:
 		return
 	var total := _dl.get_body_size()
@@ -349,16 +425,10 @@ func _on_download_completed(result: int, response_code: int, _headers, _body) ->
 
 func _fail(text: String) -> void:
 	_busy = false
-	_downloading = false
 	_msg(text)
 	get_node(UPDATE_PATH).disabled = false
 	get_node(JUMP_PATH).show()
-	if _dl:
-		# 先显式取消，再释放。卡死那条路径上请求还挂着，
-		# 只 queue_free 依赖析构去断连接，不如自己断干净。
-		_dl.cancel_request()
-		_dl.queue_free()
-		_dl = null
+	_teardown_dl()
 
 func _on_jump_button_pressed() -> void:
 	# 优先跳该版本的说明页，没有就跳 releases 列表
