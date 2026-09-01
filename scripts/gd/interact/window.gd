@@ -97,7 +97,37 @@ func set_up_enter_exit() -> void:
 	enter_exit.move_effect = $GDCubismUserModel/Animation/EffectMove
 	enter_exit.rand_move = $GDCubismUserModel/Animation/EffectMove/EffectRandMove
 	add_child(enter_exit)
-	enter_exit.run_in(get_tree().root.position)
+	var root := get_tree().root
+	enter_exit.run_in(_home_off_edge(root.position, root.size,
+		DisplayServer.screen_get_usable_rect(DisplayServer.window_get_current_screen())))
+
+
+## 上次退出时她贴在屏幕边缘的话，这次别把她放回那条边上，让她跑进屏幕里。
+##
+## 为什么会出现「在边上但没贴住」：停靠状态不存配置，存的只有坐标。下次启动坐标
+## 恢复了、停靠没恢复（update_window 那次 dock_to_edge 判定必然解除停靠，理由见
+## redock），于是她笔直站在屏幕最边上。真正的停靠是躺着、只露一条，那个是刻意的；
+## 站在边线上不是，看着像出了毛病。
+##
+## 判据是「窗口某条边正好压在屏幕可用区的边线上」。_dock_to 摆位置时就是贴着边线
+## 写的，所以贴过边的坐标一定命中；正常走动时窗口不会恰好压在边线上。留 2 像素
+## 容差是防多屏 / 缩放下的取整误差，不是为了扩大命中范围。
+##
+## 命中就往屏幕里推半个窗口。推一整个窗口显得她跑太远，推几十像素又看不出区别。
+##
+## rect 从外面传进来而不是在里面取：这样这个判断能单独测，不用真去摆一块屏幕。
+func _home_off_edge(pos: Vector2i, size: Vector2i, rect: Rect2i) -> Vector2i:
+	const EDGE_TOL := 2
+	var home := pos
+	if absi(pos.x - rect.position.x) <= EDGE_TOL:
+		home.x = rect.position.x + size.x / 2
+	elif absi(pos.x + size.x - rect.end.x) <= EDGE_TOL:
+		home.x = rect.end.x - size.x - size.x / 2
+	if absi(pos.y - rect.position.y) <= EDGE_TOL:
+		home.y = rect.position.y + size.y / 2
+	elif absi(pos.y + size.y - rect.end.y) <= EDGE_TOL:
+		home.y = rect.end.y - size.y - size.y / 2
+	return home
 
 func _process(delta: float) -> void:
 	dock_pop(delta)
