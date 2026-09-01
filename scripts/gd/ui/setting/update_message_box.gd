@@ -22,6 +22,8 @@ extends Node
 ## 下载 43 次，基本只有作者和一位测试者，让他们手动下一次即可）。
 const VERSION_URL := "https://raw.githubusercontent.com/ckzzzgo/doro/main/version.json"
 const RELEASES_URL := "https://github.com/ckzzzgo/doro/releases/latest"
+## 一键更新只认这个前缀下的下载地址，理由见 _can_self_update。
+const PACKAGE_URL_PREFIX := "https://github.com/ckzzzgo/doro/releases/download/"
 
 ## 检查更新的网络超时。
 ##
@@ -36,7 +38,39 @@ const RELEASES_URL := "https://github.com/ckzzzgo/doro/releases/latest"
 ## 所以「明明挂了梯子却检查不到」是必然结果，不是偶发。
 ##
 ## 修不了可达性，至少要让它失败得明确：10 秒后收工，把原因和退路一起告诉用户。
-const CHECK_TIMEOUT_SEC := 10.0
+const CHECK_TIMEOUT_SEC := 8.0
+
+## 下载源，按顺序试，第一个空串表示直连 GitHub。
+##
+## 为什么要有这个：国内没梯子的用户根本连不上 GitHub，这不是代码能修的——包放在
+## 那儿，够不着就是够不着。唯一的出路是换一个够得着的地方拿同一个文件。这几个是
+## 公共的 GitHub 加速服务，用法是把完整的 GitHub 地址接在它后面。
+##
+## 名单是**实测**出来的，不是照着记忆写的：逐个取过 version.json 比对内容一致，
+## 又用 Range 请求取过安装包前 2 KB 比对字节、并核对 content-length 与直连相同
+## （99776005）。试过但当时不通的：ghproxy.net、mirror.ghproxy.com、ghp.ci、
+## hub.gitmirror.com、raw.gitmirror.com。jsdelivr 能取 version.json 但不代理
+## Release 附件，所以没收进来——一个源要能同时干两件事，否则逻辑要分叉。
+##
+## 还专门验过一条决定成败的性质：这三个都是**自己转发内容**（第一跳就是 200），
+## 不是回一个 302 把人打回 github.com。若是后者，连不上 GitHub 的用户跟着跳转
+## 照样到不了，这个机制就等于没做。以后往名单里加新的，这一条必须先验。
+##
+## 这类服务生死很快。哪天全都不通了，用户仍有「手动下载」那条退路，不会卡死。
+##
+## 安全性：包下完一定校验 sha256（见 _on_download_completed），镜像给了坏东西会被
+## 直接丢弃。但 sha256 本身来自 version.json，若 version.json 也是从镜像取的，
+## 信任链的根就落在那个镜像上了——所以直连永远排第一，只有它不通才退而求其次；
+## 另外 _package_url_ok 会要求 package.url 必须是 github.com，镜像改不了下载目标。
+const MIRRORS := [
+	"",
+	"https://gh-proxy.com/",
+	"https://ghfast.top/",
+	"https://gh.llkk.cc/",
+]
+
+## 当前用第几个源。检查更新时逐个试，试通了下载就继续用它——已知它通，没必要重试直连。
+var _source := 0
 
 ## 下载卡死的判定阈值：多久没收到任何新字节就认为断了。
 ##
@@ -74,32 +108,52 @@ func _ready() -> void:
 	get_node("Root/VBoxContainer/TitleBar").set_close_button_visibility(false)
 	http_request = HTTPRequest.new()
 	add_child(http_request)
+	# 信号在这里连一次就够。原来连在 check_for_updates 里，那时它只被调用一次所以没事；
+	# 现在要为每个候选源重试，连在那儿会越连越多，一次回调触发好几遍。
+	http_request.request_completed.connect(_on_request_completed)
 	check_for_updates()
 
 func _msg(text: String) -> void:
 	get_node(MSG_PATH).set_text(text)
 
 func check_for_updates() -> void:
-	_msg("正在检查更新……")
+	_source = 0
+	_try_check()
 
-	# 先连信号再发请求。原实现顺序是反的，理论上请求可能在连接完成前就回来，
-	# 那样回调永远不会被调用，界面会一直停在初始文案上。
-	http_request.request_completed.connect(_on_request_completed)
+
+## 用第 _source 个源发一次请求。失败由 _on_request_completed 决定要不要换下一个。
+func _try_check() -> void:
+	_msg("正在检查更新……" if _source == 0 else "直连不通，正在试备用线路（%d/%d）……"
+		% [_source, MIRRORS.size() - 1])
 
 	# 必须在 request() 之前设置，本次请求才受这个时限约束
 	http_request.timeout = CHECK_TIMEOUT_SEC
 
-	var error := http_request.request(VERSION_URL)
+	var error := http_request.request(_via(VERSION_URL))
 	if error != OK:
 		_msg("检查更新失败：无法发起网络请求（错误码 %d）" % error)
 
-func _on_request_completed(result: int, response_code: int, _headers, body: PackedByteArray) -> void:
-	if result == HTTPRequest.RESULT_TIMEOUT:
-		_offline("连不上 GitHub：等了 %d 秒没有任何回应。" % int(CHECK_TIMEOUT_SEC))
-		return
 
+## 把地址接到当前源后面。直连时前缀是空串，等于原样返回。
+func _via(url: String) -> String:
+	return MIRRORS[_source] + url
+
+
+## 还有没有没试过的源；有就换到下一个并重来。
+func _next_source() -> bool:
+	_source += 1
+	return _source < MIRRORS.size()
+
+func _on_request_completed(result: int, response_code: int, _headers, body: PackedByteArray) -> void:
+	# 网络层面没通：换下一个源再试，全都试完了才认输。
 	if result != HTTPRequest.RESULT_SUCCESS:
-		_offline("连不上 GitHub：网络错误（代码 %d）。" % result)
+		if _next_source():
+			_try_check()
+			return
+		var why := "网络错误（代码 %d）" % result
+		if result == HTTPRequest.RESULT_TIMEOUT:
+			why = "等了 %d 秒没有任何回应" % int(CHECK_TIMEOUT_SEC)
+		_offline("直连和 %d 条备用线路都连不上：%s。" % [MIRRORS.size() - 1, why])
 		return
 
 	if response_code == 429:
@@ -167,6 +221,13 @@ func _can_self_update() -> bool:
 	var pkg: Dictionary = latest_info["package"]
 	if not (pkg.has("url") and pkg.has("sha256")):
 		return false
+	if not str(pkg["url"]).begins_with(PACKAGE_URL_PREFIX):
+		# version.json 可能是从第三方镜像取回来的。包本身有 sha256 兜底，但那个
+		# sha256 也写在同一份 version.json 里 —— 光靠它，被掉包的清单可以自圆其说。
+		# 所以再钉一条：下载地址必须是本仓库的 Release，镜像只能当搬运工，不能改目的地。
+		push_warning("version.json 里的下载地址不是本仓库的 Release，已拒绝一键更新：%s"
+			% str(pkg["url"]))
+		return false
 	return FileAccess.file_exists(_updater_source_path())
 
 ## 测试用的覆盖点：留空则取 exe 所在目录（正常运行的行为）。
@@ -200,11 +261,12 @@ func _on_update_button_pressed() -> void:
 	_dl.download_file = _dl_path
 	_dl.request_completed.connect(_on_download_completed)
 
-	_msg("正在下载新版本……")
+	# 检查更新时哪个源试通了，下载就继续用它 —— 已知它到得了，没必要再从直连重来一遍。
+	_msg("正在下载新版本……" if _source == 0 else "正在通过备用线路下载……")
 	_downloading = true
 	_dl_last_bytes = 0
 	_dl_stall = 0.0
-	var err := _dl.request(str(pkg["url"]))
+	var err := _dl.request(_via(str(pkg["url"])))
 	if err != OK:
 		_downloading = false
 		_fail("下载没能开始（错误码 %d）。" % err)
