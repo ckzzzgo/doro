@@ -81,6 +81,11 @@ const MIRRORS := [
 ## 当前用第几个源。检查更新时逐个试，试通了下载就继续用它——已知它通，没必要重试直连。
 var _source := 0
 
+## 本轮最后一个源是怎么失败的。全部试完之后要给用户一句具体的话，而不是笼统的
+## 「更新失败」——连不上、被限流、还是对面返回了一坨 HTML，处理办法完全不同。
+var _last_fail := ""
+var _last_code := 0
+
 ## 下载卡死的判定阈值：多久没收到任何新字节就认为断了。
 ##
 ## 这里不能用 HTTPRequest.timeout —— 那是整个请求的时限，而安装包 100MB+，
@@ -140,7 +145,36 @@ func _ready() -> void:
 	# 信号在这里连一次就够。原来连在 check_for_updates 里，那时它只被调用一次所以没事；
 	# 现在要为每个候选源重试，连在那儿会越连越多，一次回调触发好几遍。
 	http_request.request_completed.connect(_on_request_completed)
+	_purge_old_packages()
 	check_for_updates()
+
+
+## 清掉 user://update 里遗留的安装包。
+##
+## 每个包 100MB 上下，而更新成功之后它就一直躺在 AppData 里没人管——开发机上攒到过
+## 12 个、1.2 GB，用户根本不知道有这么个目录。助手装完会删掉它用的那一个（见
+## DoroUpdater.cs），但那只管住以后；早先版本留下的存量得在这儿清。
+##
+## 放在打开「检查更新」时做是安全的：弹窗同一时刻只可能有一个实例（setting_about.gd
+## 里有守卫），所以这会儿一定没有下载在跑，不会删到正在写的文件。
+func _purge_old_packages() -> void:
+	var dir := DirAccess.open(WORK_DIR)
+	if dir == null:
+		return
+	var freed := 0
+	for f in dir.get_files():
+		if not f.to_lower().ends_with(".zip"):
+			continue
+		var full := WORK_DIR.path_join(f)
+		var size := 0
+		var fa := FileAccess.open(full, FileAccess.READ)
+		if fa != null:
+			size = fa.get_length()
+			fa.close()
+		if dir.remove(f) == OK:
+			freed += size
+	if freed > 0:
+		print("清理了遗留的安装包，腾出 %s" % _size_text(freed))
 
 func _msg(text: String) -> void:
 	get_node(MSG_PATH).set_text(text)
@@ -174,33 +208,28 @@ func _next_source() -> bool:
 	return _source < MIRRORS.size()
 
 func _on_request_completed(result: int, response_code: int, _headers, body: PackedByteArray) -> void:
-	# 网络层面没通：换下一个源再试，全都试完了才认输。
-	if result != HTTPRequest.RESULT_SUCCESS:
+	var manifest := _read_manifest(result, response_code, body)
+	if manifest.is_empty():
+		# 这个源没给出能用的东西，换下一个。
+		#
+		# 早先只有「网络层面没通」才换源，别的一律当场放弃——那等于把这套机制关掉了
+		# 一半：镜像被限流返回 403、还没同步到新 release 返回 404、挂掉时返回一个
+		# 状态码 200 的 HTML 错误页，这些全都是「连得上但没用」，而流程会停在那儿，
+		# 后面好好的源永远轮不到。对用户来说这些跟连不上是同一件事，就该同样处理。
 		if _next_source():
 			_try_check()
 			return
-		var why := "网络错误（代码 %d）" % result
-		if result == HTTPRequest.RESULT_TIMEOUT:
-			why = "等了 %d 秒没有任何回应" % int(CHECK_TIMEOUT_SEC)
-		_offline("直连和 %d 条备用线路都连不上：%s。" % [MIRRORS.size() - 1, why])
+		if _last_code == 429:
+			# 限流跟连不上不是一回事，别给他讲梯子——他要做的只是等几分钟。
+			_msg("检查更新太频繁被暂时限流了，\n过几分钟再试就好。")
+			get_node(JUMP_PATH).show()
+			return
+		_offline("直连和 %d 条备用线路都没拿到版本信息：%s。" % [MIRRORS.size() - 1, _last_fail])
 		return
 
-	if response_code == 429:
-		_msg("检查更新太频繁被暂时限流了，\n过几分钟再试就好。")
-		return
-
-	if response_code != 200:
-		_msg("检查更新失败：服务器返回 %d。" % response_code)
-		return
-
-	var parsed = JSON.parse_string(body.get_string_from_utf8())
-	if typeof(parsed) != TYPE_DICTIONARY or not parsed.has("version"):
-		_msg("检查更新失败：版本信息格式不对。")
-		return
-
-	latest_info = parsed
+	latest_info = manifest
 	var current: String = str(ProjectSettings.get_setting("application/config/version"))
-	var latest: String = str(parsed["version"])
+	var latest: String = str(manifest["version"])
 
 	if is_update_available(current, latest):
 		_msg("发现新版本 v%s\n当前 v%s" % [latest, current])
@@ -210,6 +239,30 @@ func _on_request_completed(result: int, response_code: int, _headers, body: Pack
 			get_node(UPDATE_PATH).show()
 	else:
 		_msg("已是最新版本 v%s" % current)
+
+## 把一次响应解读成版本清单。读不出来就返回空字典，并把原因记在 _last_fail 里，
+## 供「所有源都试完了」时展示。返回空 = 这个源不能用，该换下一个。
+func _read_manifest(result: int, response_code: int, body: PackedByteArray) -> Dictionary:
+	_last_code = response_code
+	if result != HTTPRequest.RESULT_SUCCESS:
+		if result == HTTPRequest.RESULT_TIMEOUT:
+			_last_fail = "等了 %d 秒没有任何回应" % int(CHECK_TIMEOUT_SEC)
+		else:
+			_last_fail = "网络错误（代码 %d）" % result
+		return {}
+	if response_code == 429:
+		_last_fail = "被限流了（429）"
+		return {}
+	if response_code != 200:
+		_last_fail = "服务器返回 %d" % response_code
+		return {}
+
+	var parsed = JSON.parse_string(body.get_string_from_utf8())
+	if typeof(parsed) != TYPE_DICTIONARY or not parsed.has("version"):
+		_last_fail = "返回的内容不是版本信息"
+		return {}
+	return parsed
+
 
 ## 网络到不了时的统一出口。
 ##
@@ -279,7 +332,13 @@ func _on_update_button_pressed() -> void:
 	get_node(JUMP_PATH).hide()
 
 	var pkg: Dictionary = latest_info["package"]
-	var name: String = str(pkg.get("name", "Dororo_update.zip"))
+	# 只取文件名，丢掉任何目录成分。version.json 有可能是从镜像取回来的，name 里塞
+	# 一串 "../" 就能让下面的 path_join 写到 user:// 之外去——Godot 不拦，实测过。
+	# 下载地址已经钉死在本仓库前缀上（见 _can_self_update），内容是可控的；但「写到
+	# 哪里」同样得钉死，否则一个恶意镜像能拿 100MB 覆盖掉用户的任意一个文件。
+	var name: String = str(pkg.get("name", "Dororo_update.zip")).get_file()
+	if name.is_empty():
+		name = "Dororo_update.zip"
 
 	DirAccess.make_dir_recursive_absolute(WORK_DIR)
 	_dl_path = WORK_DIR.path_join(name)
@@ -297,7 +356,7 @@ func _on_update_button_pressed() -> void:
 ## 2161835 字节，换个小文件重下后落盘 376 字节，旧内容一点没剩）；要是不截断，
 ## 拼出来的包 sha256 必然对不上，用户等两轮换来一句「下载失败」。改这段之前
 ## 先想想这一条还成不成立。
-func _start_download(retry: bool = false) -> void:
+func _start_download(retry_reason: String = "") -> void:
 	var pkg: Dictionary = latest_info["package"]
 
 	_dl = HTTPRequest.new()
@@ -307,8 +366,8 @@ func _start_download(retry: bool = false) -> void:
 	_dl.request_completed.connect(_on_download_completed)
 
 	# 检查更新时哪个源试通了，下载就继续用它 —— 已知它到得了，没必要再从直连重来一遍。
-	if retry:
-		_msg("刚才那条线路太慢，换一条重新下载……")
+	if not retry_reason.is_empty():
+		_msg(retry_reason)
 	else:
 		_msg("正在下载新版本……" if _source == 0 else "正在通过备用线路下载……")
 	_downloading = true
@@ -326,7 +385,7 @@ func _demote_source(bps: float) -> void:
 		MIRRORS[_source] if _source > 0 else "直连", bps / 1048576.0])
 	_teardown_dl()
 	_source += 1
-	_start_download(true)
+	_start_download("刚才那条线路太慢，换一条重新下载……")
 
 ## 停掉并释放下载用的 HTTPRequest。先显式 cancel 再 free：卡死那条路径上请求
 ## 还挂着，只 queue_free 依赖析构去断连接，不如自己断干净。
@@ -382,11 +441,20 @@ func _size_text(bytes: int) -> String:
 
 func _on_download_completed(result: int, response_code: int, _headers, _body) -> void:
 	_downloading = false
-	if result != HTTPRequest.RESULT_SUCCESS:
-		_fail("下载失败：连接中断，请检查网络后重试。")
-		return
-	if response_code != 200:
-		_fail("下载失败：服务器返回 %d。" % response_code)
+	if result != HTTPRequest.RESULT_SUCCESS or response_code != 200:
+		# 跟检查更新同一个道理：这个源不行就换下一个，别停在这儿。镜像最常见的失败
+		# 恰恰是连得上的那种——还没同步到新 release（404）、或者被限流（403）。
+		#
+		# 不会无限重试：_source 只增不减，最多试 MIRRORS.size() 次就到头了。
+		var why := "连接中断"
+		if result == HTTPRequest.RESULT_SUCCESS:
+			why = "服务器返回 %d" % response_code
+		if _next_source():
+			push_warning("下载失败（%s），换下一条线路" % why)
+			_teardown_dl()
+			_start_download("刚才那条线路下载失败，换一条重试……")
+			return
+		_fail("下载失败：%s。\n请稍后重试或手动下载。" % why)
 		return
 
 	_msg("正在校验安装包……")
@@ -429,8 +497,7 @@ func _fail(text: String) -> void:
 	# 而更新出问题时我们拿到的往往只有一句「更新失败了」——日志里得有当时用的
 	# 是哪条线路、断在哪一步，否则换源这套东西出了毛病根本没法查。
 	push_warning("更新失败（线路 %d/%d）：%s" % [
-		_source, MIRRORS.size() - 1, text.replace("
-", " ")])
+		_source, MIRRORS.size() - 1, text.replace("\n", " ")])
 	_msg(text)
 	get_node(UPDATE_PATH).disabled = false
 	get_node(JUMP_PATH).show()
