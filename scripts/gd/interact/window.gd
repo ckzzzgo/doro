@@ -364,6 +364,24 @@ func _undock() -> void:
 	_peeking = false
 	_peek_lost_time = 0.0
 
+## 按指定方向重新建立停靠。目前只有入场动画用：她跑走时 docking 被清掉了，跑回来
+## 得原样装回去，否则 move.gd 里那句 `not window.docking` 会放行 —— 人贴在边缘、
+## 只露半个头，却还在那儿走动。
+##
+## 为什么不让调用方拿落点去跑 dock_to_edge：那个判定吃的是**拖动中的鼠标位置**，
+## 不是吸附之后的位置。吸附会把窗口贴到边缘线上，此时窗口中心离边缘正好是半个窗口宽
+## （0.5W），而触发距离 thresh_x = min(0.3W, 屏幕宽×0.2)。0.3W < 0.5W 恒成立，取到
+## 屏幕那个上限时只会更小 —— 也就是说**不管窗口多大**，拿吸附后的坐标去判都必然判成
+## 「不该停靠」，于是走 _undock()，连旋转和位移一起复位，她会在边缘上站起来。
+## 那是另一个 bug，不是修复。
+func redock(dir: int) -> void:
+	if dir == DOCK_NONE:
+		return
+	var root := get_tree().root
+	var screen_rect := DisplayServer.screen_get_usable_rect(
+		DisplayServer.window_get_current_screen())
+	root.position = _dock_to(root.position, root.size, screen_rect, dir)
+
 func _dock_to(win_pos: Vector2i, win_size: Vector2i, screen_rect: Rect2i, dir: int) -> Vector2i:
 	docking = true
 	docking_dir = dir

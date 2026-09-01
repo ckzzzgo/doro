@@ -42,6 +42,11 @@ var _playing := false
 ## 退场前的位置，入场要跑回这儿。
 var _rest_pos := Vector2i.ZERO
 var _has_rest := false
+## 这一趟是不是「跑回家」。只有跑回家才需要把停靠装回去 —— 跑出去那趟她正要离开边缘。
+var _restore_dock := false
+## 出发时贴在哪条边（window.DOCK_NONE 表示当时没贴边）。跑回来照这个方向装回去。
+## 初值用 4，也就是 window.gd 里的 DOCK_NONE —— 这里拿不到那个常量。
+var _rest_dock_dir := 4
 
 
 func _ready() -> void:
@@ -91,6 +96,9 @@ func run_out(after := Callable()) -> void:
 	if not _playing:
 		_rest_pos = root.position
 		_has_rest = true
+		# 停靠状态跟「家」是一起的：下面 _play 马上要把 docking 清掉，不在这儿记，
+		# 跑回来就没人知道她原来贴的是哪条边了。
+		_rest_dock_dir = window.docking_dir if (window and window.docking) else 4
 	_play(_offscreen_target(root.position, root.size), after)
 
 
@@ -111,7 +119,7 @@ func run_in(rest := Vector2i.ZERO) -> void:
 		root.position = _offscreen_target(target, root.size)
 	_rest_pos = target
 	_has_rest = true
-	_play(target, Callable())
+	_play(target, Callable(), true)
 
 
 ## 从 pos 出发，就近选左右边缘，算出「完全跑出屏幕」的落点。
@@ -127,8 +135,10 @@ func _offscreen_target(pos: Vector2i, size: Vector2i) -> Vector2i:
 	return Vector2i(target_x, pos.y)
 
 
-func _play(target: Vector2i, after: Callable) -> void:
+func _play(target: Vector2i, after: Callable, restore_dock := false) -> void:
 	var root := get_tree().root
+	# 每趟都重设：跑回家的途中被叫出去（游戏又全屏了），这一趟就不该再判定停靠。
+	_restore_dock = restore_dock
 	var from := root.position
 	var dist := Vector2(from).distance_to(Vector2(target))
 	var duration := clampf(dist / RUN_SPEED, MIN_DURATION, MAX_DURATION)
@@ -168,6 +178,10 @@ func _play(target: Vector2i, after: Callable) -> void:
 
 	# 停靠状态下 window.dock_pop 每帧强制 model.flip_h = false，朝向会被它按回去；
 	# 而且她正要离开边缘，本来也不该还算停靠着。
+	#
+	# 注意这里只清标志，没有调 _undock() —— 姿态（旋转/位移/Body_group）是故意留着的。
+	# 但标志清了就必须有人负责装回去，否则跑回边缘之后 move.gd 那句
+	# `not window.docking` 会放行，她就贴着边缘乱走，只露半个头。见 _finish。
 	if window and window.docking:
 		window.docking = false
 	# 把菜单收掉。中键叫出来的设置栏浮在她头顶，她跑出画面时那条栏跟着一起跑，很怪。
@@ -191,6 +205,17 @@ func _play(target: Vector2i, after: Callable) -> void:
 
 func _finish(after: Callable) -> void:
 	_playing = false
+
+	# 跑回家了，把 _play 清掉的停靠状态原样装回去。
+	#
+	# **不能**拿落点去重跑 window.dock_to_edge —— 会把她解除停靠、在边缘上站起来。
+	# 理由（跟窗口大小无关，恒成立）写在 window.redock 上面。
+	#
+	# 所以走「记下方向、按方向装回去」这条路。redock 里面复用 _dock_to，标志、旋转、
+	# 位移、Body_group、window_docking 信号都由它一手办完，这边不逐个还原。
+	if _restore_dock and window and _rest_dock_dir != window.DOCK_NONE:
+		window.redock(_rest_dock_dir)
+
 	if anim_controller:
 		anim_controller.idle()
 	if move_effect:
