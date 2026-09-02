@@ -48,6 +48,10 @@ param(
     # 就认定它卡在退出阶段，强制结束。设 45 秒是给正常的收尾留足余量。
     [int]$ExportIdleKillSec = 45,
 
+    # 版本清单的签名私钥。绝不入库（.gitignore 排除 tools/keys/）。
+    # 没有它就打不了包 —— 这是故意的，见「给 version.json 签名」那一步的说明。
+    [string]$SigningKey = "tools/keys/signing_priv.pem",
+
     # 只组装不打 zip
     [switch]$SkipZip,
 
@@ -539,6 +543,33 @@ if ($SkipZip) {
     ($verJson | ConvertTo-Json -Depth 4) | Set-Content -Path $verPath -Encoding utf8NoBOM
     Ok ("已写出 {0}" -f $verPath)
     Info ("sha256 = {0}" -f $sha)
+
+    # ---------------------------------------------------------- 给清单签名
+    #
+    # 必须在这里签，不能留给人工。客户端对 version.json 是 fail-closed 的：没签名
+    # 或签名不对，一键更新整条被拒。而 selfcheck 查的是**仓库根目录**那份旧清单，
+    # 它一直是签好的 —— 所以「打包 → 通过 → 把这份没签名的覆盖到根目录 → 推送」
+    # 一路无人喊停，等下一次打包 selfcheck 才报错，那时所有用户已经坏了一整个版本。
+    #
+    # 签不了就让整个打包失败，不产出「看着能用其实发出去会坏」的东西。
+    Step "给 version.json 签名"
+    if (-not (Test-Path $SigningKey)) {
+        Fail ("找不到签名私钥 {0}`n     还没做密钥仪式的话先跑：pwsh -File tools/setup_signing_key.ps1`n     没有签名的清单发出去，所有客户端的一键更新会立刻全部失效。" -f $SigningKey)
+    }
+    & $Godot --headless --path $root --script res://tools/sign_version.gd -- `
+        --manifest $verPath --key $SigningKey --quit 2>&1 | Out-Null
+    $signed = Get-Content -Raw -Encoding UTF8 $verPath | ConvertFrom-Json
+    if (-not $signed.package.PSObject.Properties['signature']) {
+        Fail "签名没写进 $verPath —— 检查 tools/sign_version.gd 的输出"
+    }
+    # 光有 signature 字段不算数，要真过一遍内嵌公钥校验：私钥与客户端里那把公钥
+    # 不配对的话，字段在、内容错，一样是全员更新失效。
+    $verify = & $Godot --headless --path $root --script res://tools/selfcheck_verify.gd `
+        --manifest $verPath --quit 2>&1 | Out-String
+    if ($verify -notmatch 'SIGNATURE_VERIFY=OK') {
+        Fail "刚签的 version.json 过不了客户端内嵌公钥的校验 —— 私钥和 version_signer.gd 里的公钥不是一对"
+    }
+    Ok "已签名并通过内嵌公钥校验"
 }
 
 # ------------------------------------------------------------------ 收尾

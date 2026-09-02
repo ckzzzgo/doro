@@ -179,7 +179,7 @@ if (-not (Test-Path 'version.json')) {
         # 签名内容能否过内嵌公钥校验，这步要 Godot 跑真加解密，放在 -WithGodot 里。
         $script:NeedSigVerify = $true
     } else {
-        Bad "version.json 的 package 里没有 signature 字段`n         客户端会自动更新校验签名，没签名的清单会被整条拒绝，用户只能手动下载。`n         发版前先跑 tools/sign_version.gd。"
+        Bad "version.json 的 package 里没有 signature 字段`n         客户端会自动更新校验签名，没签名的清单会被整条拒绝，用户只能手动下载。`n         还没做密钥仪式的话跑：pwsh -File tools/setup_signing_key.ps1"
     }
 }
 

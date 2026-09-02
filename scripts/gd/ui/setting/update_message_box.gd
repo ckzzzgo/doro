@@ -24,6 +24,8 @@ const VERSION_URL := "https://raw.githubusercontent.com/ckzzzgo/doro/main/versio
 const RELEASES_URL := "https://github.com/ckzzzgo/doro/releases/latest"
 ## 一键更新只认这个前缀下的下载地址，理由见 _can_self_update。
 const PACKAGE_URL_PREFIX := "https://github.com/ckzzzgo/doro/releases/download/"
+## 界面上任何可点开的外部地址都必须落在这个前缀下，理由见 _on_jump_button_pressed。
+const REPO_URL_PREFIX := "https://github.com/ckzzzgo/doro/"
 
 ## 版本清单的数字签名校验。verification 失败时一键更新整条被封（fail-closed），
 ## 只留手动下载这条退路 —— 这正是挡「镜像把 version.json 和 sha256 一起掉包」的闸门。
@@ -303,7 +305,9 @@ static func is_update_available(current_version: String, latest_version: String)
 func _can_self_update() -> bool:
 	if OS.has_feature("editor"):
 		return false
-	if not latest_info.has("package"):
+	# typeof 而不是直接类型化赋值：清单可能来自镜像，package 不是对象时
+	# 直接赋值会抛 Invalid cast，而不是走到下面的 return false。
+	if typeof(latest_info.get("package")) != TYPE_DICTIONARY:
 		return false
 	var pkg: Dictionary = latest_info["package"]
 	if not (pkg.has("url") and pkg.has("sha256")):
@@ -508,8 +512,17 @@ func _fail(text: String) -> void:
 	_teardown_dl()
 
 func _on_jump_button_pressed() -> void:
-	# 优先跳该版本的说明页，没有就跳 releases 列表
+	# 优先跳该版本的说明页，没有就跳 releases 列表。
+	#
+	# 但地址必须钉死在本仓库下：这个值来自 version.json，而 version.json 可能是从
+	# 第三方镜像取回来的。签名已经把 notes_url 覆盖进去了，这里是第二道 ——
+	# 签名管「内容是不是作者签的」，前缀管「万一签名那层出了岔子也送不出去」。
+	# 这个按钮恰恰在签名校验失败时才最显眼（那条路径专门提示「请手动下载」），
+	# 越是那种时候越不能把用户往一个来路不明的网址上送。
 	var url: String = str(latest_info.get("notes_url", RELEASES_URL))
+	if not url.begins_with(REPO_URL_PREFIX):
+		push_warning("version.json 里的说明页地址不在本仓库下，已改跳 Releases 列表：%s" % url)
+		url = RELEASES_URL
 	OS.shell_open(url)
 
 func _on_cancel_button_pressed() -> void:
